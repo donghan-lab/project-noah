@@ -138,3 +138,8 @@ Not every research idea should be documented publicly before it is mature enough
 The goal is not to invent everything today.
 
 The goal is to continuously discover better ways to build NOAH.
+
+## Future Research
+
+- Define the long-term role of external AI services.
+- NOAH should remain the primary intelligence while external AI acts as optional collaborators.
