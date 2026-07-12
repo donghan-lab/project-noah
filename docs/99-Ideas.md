@@ -123,3 +123,18 @@ Status: Experimental
 During idle time, NOAH may organize knowledge, summarize experiences, discover relationships between information, and prepare future suggestions.
 
 This mode never performs actions without user approval.
+
+
+---
+
+# Long-term Research Strategy
+
+Project NOAH is expected to discover its most valuable ideas through continuous development rather than defining everything from the beginning.
+
+Core algorithms, reasoning systems, and autonomous capabilities should evolve through experimentation, experience, and collaboration.
+
+Not every research idea should be documented publicly before it is mature enough to be implemented.
+
+The goal is not to invent everything today.
+
+The goal is to continuously discover better ways to build NOAH.
