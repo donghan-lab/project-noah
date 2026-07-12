@@ -2,9 +2,11 @@
 
 ## Overview
 
-Project NOAH is built around a central AI coordinator.
+Project NOAH is a personal AI operating system designed to build a trusted AI companion.
 
-The coordinator communicates with multiple AI providers, local infrastructure, and external services while keeping the user at the center of every decision.
+At the center of the system is NOAH Core, which coordinates planning, memory, AI collaboration, and automation while keeping the user involved in important decisions.
+
+The architecture is designed to evolve continuously as NOAH grows together with its user.
 
 ---
 
@@ -15,28 +17,37 @@ User
     ▼
 NOAH Core
     │
+    ├── Planner
+    │      ├── Task Planning
+    │      ├── Decision Support
+    │      └── Workflow Coordination
+    │
     ├── AI Router
-    │      ├── GPT
+    │      ├── OpenAI
     │      ├── Claude
     │      ├── Gemini
     │      └── Ollama (Local)
     │
     ├── Memory
     │      ├── Knowledge
+    │      ├── Experiences
     │      ├── Decisions
-    │      └── Journal
+    │      ├── Journal
+    │      └── Preferences
     │
     ├── Skills
     │      ├── Discord
     │      ├── GitHub
-    │      ├── OBS
     │      ├── File Manager
+    │      ├── OBS
+    │      ├── Email
+    │      ├── Browser
     │      └── Automation
     │
     └── Infrastructure
-           ├── NAS
-           ├── RTX 5080
-           ├── RTX 2080
+           ├── Synology NAS
+           ├── RTX 5080 Workstation
+           ├── RTX 2080 Worker
            └── Laptop
 
 ---
@@ -45,33 +56,65 @@ NOAH Core
 
 ### User
 
-Makes final decisions and approves important actions.
+Defines goals.
+
+Makes important decisions.
+
+Provides feedback that helps NOAH grow.
+
+---
 
 ### NOAH Core
 
-Coordinates every task.
+Acts as the central coordinator.
 
-Chooses the appropriate AI model.
+Maintains context.
 
-Maintains long-term memory.
+Coordinates every subsystem.
 
-Protects sensitive information.
+Protects user data.
+
+---
+
+### Planner
+
+Analyzes requests.
+
+Creates execution plans.
+
+Suggests improvements.
+
+Coordinates multi-step workflows.
+
+---
 
 ### AI Router
 
-Selects the most suitable AI provider for each request.
+Selects the most suitable AI model for each task.
+
+Balances speed, quality, privacy, and cost.
+
+---
 
 ### Memory
 
-Stores knowledge, decisions, and project history.
+Stores knowledge, experiences, user preferences, project history, and important decisions.
+
+Memory allows NOAH to continuously improve over time.
+
+---
 
 ### Skills
 
-Provides integrations such as Discord, GitHub, file management, broadcasting tools, and automation.
+Connects NOAH with external tools.
+
+Examples include GitHub, Discord, OBS, browsers, file management, and automation.
+
+---
 
 ### Infrastructure
 
-Provides computing resources, storage, networking, and remote access.
+Provides computing power, storage, networking, and remote execution.
 
 ---
 
@@ -83,27 +126,26 @@ Provides computing resources, storage, networking, and remote access.
 | Database | PostgreSQL |
 | Local AI | Ollama |
 | AI Interface | Open WebUI |
-| Cloud AI | Gemini API |
+| Cloud AI | OpenAI API / Gemini API / Claude API |
 | Version Control | GitHub |
 | Storage | Synology NAS |
-| Main Compute | RTX 5080 PC |
-| Server / Worker | RTX 2080 PC |
+| Main Compute | RTX 5080 |
+| Worker Compute | RTX 2080 |
 | Remote Access | Tailscale (Planned) |
 
-> This represents the initial planned technology stack for Project NOAH.
-> The stack may evolve as the project grows.
+> This stack represents the initial planned technologies for Project NOAH.
+> It will evolve together with the project.
 
 ---
 
 ## Future Expansion
 
-Project NOAH is designed to evolve over time.
-
-Future components may include:
+Future capabilities may include:
 
 - Multi-Agent Collaboration
 - Voice Interface
-- Mobile Companion
-- Vector Database
+- Personal Knowledge Graph
 - Smart Home Integration
-- Autonomous Workflow Execution
+- Self-Optimization
+- Continuous Learning
+- Autonomous Workflow Execution (with User Approval)
