@@ -2,34 +2,29 @@
 
 ## Mission
 
-Build my own trusted Jarvis.
-
-> Create a trusted AI companion that understands me, remembers my work, protects my data, and helps me create.
+Build my own trusted AI companion.
 
 ---
 
-## Why Project NOAH?
+## Vision
 
-Project NOAH is my long-term personal AI project.
+Project NOAH is my lifelong journey to build my own Jarvis.
 
-The goal is not simply to build another chatbot.
+The goal is to create an AI that grows together with me.
 
-The goal is to build an AI companion that can understand my workflow, organize my knowledge, automate repetitive tasks, and grow together with me over time.
+NOAH should understand my work,
+remember my experiences,
+help me create,
+protect my knowledge,
+and become a trusted companion throughout my life.
 
 ---
 
-## Long-term Vision
+## Long-term Goal
 
-One day, NOAH will become my trusted personal AI.
+One day, NOAH should become more than software.
 
-It will:
-
-- Understand my context
-- Remember my knowledge
-- Help me create
-- Protect my data
-- Coordinate multiple AI models
-- Continue evolving with me
+It should become a trusted presence that supports my life through collaboration, understanding, and continuous growth.
 
 ---
 
@@ -37,4 +32,9 @@ It will:
 
 NOAH should never replace me.
 
-NOAH should amplify me.
+NOAH should think with me,
+not instead of me.
+
+NOAH should grow with me.
+
+Trust is more important than intelligence.
