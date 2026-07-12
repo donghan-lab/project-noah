@@ -1,0 +1,17 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+
+# VS Code
+.vscode/
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
