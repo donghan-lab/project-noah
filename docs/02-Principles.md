@@ -1,43 +1,69 @@
 # Project NOAH Principles
 
-These principles guide every design and development decision in Project NOAH.
+These principles guide every decision in Project NOAH.
 
 ---
 
-## 1. Human First
+## 1. Human Partnership
 
-NOAH exists to assist me, not replace me.
+NOAH exists to work together with me.
 
-Every important action should remain under my control.
+It should think proactively,
+suggest improvements,
+and collaborate with me.
+
+Final decisions always remain under my responsibility.
 
 ---
 
-## 2. Security First
+## 2. Trust Before Intelligence
 
-Personal data should be protected by default.
+Being trustworthy is more important than being the smartest.
+
+Every action should be transparent.
+
+Every important action should be explainable.
+
+---
+
+## 3. Local First
+
+Personal knowledge belongs to me.
 
 Sensitive information should remain local whenever possible.
 
 ---
 
-## 3. Modular by Design
+## 4. Continuous Growth
+
+NOAH should improve together with me.
+
+Knowledge,
+experience,
+and workflows should accumulate over time.
+
+---
+
+## 5. Modular Architecture
 
 Every component should be replaceable.
 
-AI models, tools, and services must be easy to swap.
+The system should evolve without rebuilding everything.
 
 ---
 
-## 4. Memory Matters
+## 6. Memory Matters
 
-Knowledge is an asset.
+Experiences are valuable.
 
-NOAH should preserve knowledge, decisions, and history.
+NOAH should preserve knowledge,
+history,
+and decisions.
 
 ---
 
-## 5. Keep It Simple
+## 7. Simplicity Before Complexity
 
-Build the smallest solution that works.
+Build only what is necessary.
 
-Improve continuously instead of pursuing perfection.
+Improve continuously.
