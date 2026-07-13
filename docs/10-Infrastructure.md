@@ -78,7 +78,15 @@ Each service must own its dedicated volume.
 
 # Configuration
 
-Environment-specific settings should be stored in `.env`.
+Environment-specific settings should be stored separately from application logic.
+
+## Environment Variables
+
+Docker-specific environment variables are stored in `compose/.env`.
+
+Application-specific environment variables may use a separate `.env` file in the project root if needed in the future.
+
+Environment variables containing secrets must never be committed to the repository.
 
 Configuration files should remain separate from application logic.
 
