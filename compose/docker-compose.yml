@@ -1,1 +1,9 @@
-version: "3.9"
+name: project-noah
+
+services: {}
+
+networks:
+  noah-network:
+    driver: bridge
+
+volumes: {}
