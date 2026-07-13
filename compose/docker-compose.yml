@@ -1,9 +1,28 @@
-name: project-noah
+name: noah
 
-services: {}
+services:
+  noah-postgres:
+    image: postgres:17
+    container_name: noah-postgres
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "${POSTGRES_PORT}:5432"
+
+    volumes:
+      - noah-postgres-data:/var/lib/postgresql/data
+
+    networks:
+      - noah-network
 
 networks:
   noah-network:
     driver: bridge
 
-volumes: {}
+volumes:
+  noah-postgres-data:

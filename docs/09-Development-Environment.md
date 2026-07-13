@@ -118,3 +118,12 @@ Project NOAH prioritizes a stable and reproducible development environment.
 New tools should only be introduced when they provide meaningful value to the project.
 
 The development environment should remain simple, consistent, and easy to rebuild.
+
+## PostgreSQL
+
+- Version: 17
+- Image: postgres:17
+- Container: noah-postgres
+- Database: noah
+- Port: 5432
+- Deployment: Docker Compose
