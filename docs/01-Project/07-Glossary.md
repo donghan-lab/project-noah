@@ -2,7 +2,9 @@
 
 This glossary defines important terms used throughout Project NOAH.
 
-The definitions may evolve as the project grows.
+Its purpose is to maintain consistent terminology across documentation, discussions, and implementation.
+
+Definitions may evolve as the project grows.
 
 ---
 
@@ -14,13 +16,15 @@ The trusted AI companion being developed through Project NOAH.
 
 ## Companion
 
-An AI that grows together with the user through trust, collaboration, and continuous learning.
+An AI companion that grows together with the user through trust, collaboration, and continuous learning.
 
 ---
 
 ## NOAH Core
 
 The central intelligence responsible for coordinating every subsystem of Project NOAH.
+
+It serves as the central coordinator between planning, memory, skills, and AI collaboration.
 
 ---
 
@@ -34,11 +38,15 @@ The component responsible for analyzing requests, creating plans, and coordinati
 
 The long-term knowledge system that stores experiences, preferences, decisions, and contextual information.
 
+Memory preserves context across conversations and projects.
+
 ---
 
 ## Skill
 
 A capability that allows NOAH to interact with external systems or perform specific tasks.
+
+Skills are modular and can be added, removed, or replaced independently.
 
 Examples include GitHub, Discord, Email, File Management, and OBS.
 
@@ -47,6 +55,8 @@ Examples include GitHub, Discord, Email, File Management, and OBS.
 ## AI Router
 
 The component responsible for selecting the most suitable AI model for each task.
+
+It balances capability, privacy, speed, and cost when making routing decisions.
 
 ---
 
@@ -76,4 +86,4 @@ The ability for NOAH to execute actions independently.
 
 At the current stage, important actions require user approval.
 
-The level of autonomy may expand as trust grows.
+Its level may expand as trust is earned over time.
