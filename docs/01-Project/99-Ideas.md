@@ -1,145 +1,98 @@
-# Project NOAH Ideas
+# Ideas
 
-This document is the idea notebook for Project NOAH.
+Version: 2.0
 
-It stores concepts, experiments, and future possibilities before they become architectural decisions or implementation plans.
+Status: Living Document
+
+---
+
+## Purpose
+
+This document serves as the central hub for research ideas within Project NOAH.
+
+Ideas range from short-term implementation concepts to long-term research topics.
+
+Some ideas may become architectural decisions.
+
+Some may remain open research questions for years.
+
+Others may prove impossible.
+
+All ideas exist to support the long-term vision of Project NOAH.
+
+Detailed research documents are maintained under `/12-Research`.
+
+---
+
+## Research Philosophy
+
+Research is intentionally exploratory.
+
+Project NOAH encourages curiosity, experimentation, and long-term thinking.
+
+Ideas should not be rejected simply because they are currently difficult or impossible to implement.
+
+Every significant capability begins as an idea.
+
+---
+
+## Idea Lifecycle
+
+Idea
+
+↓
+
+Research Candidate
+
+↓
+
+Architecture Candidate
+
+↓
+
+Decision
+
+↓
+
+Architecture
+
+↓
+
+Implementation
+
+---
+
+## Research Areas
+
+- Cognition
+- Curiosity
+- Autonomy
+- Memory
+- Knowledge
+- Reasoning
+- Context
+- Personality
+- Identity
+- Emotion
+- Intelligence
+- Learning
+- Creativity
+- Communication
+- Trust
+- Security
+- Interaction
+- Environment
+- Future Technologies
+- Ultimate Vision
+
+---
+
+## Notes
 
 Ideas are intentionally lightweight.
 
+Ideas may be revised, merged, expanded, or discarded as the project evolves.
+
 Some ideas may eventually evolve into Decisions, Architecture, or Roadmap updates.
 
----
-
-# AI Cognition
-
-## Curiosity Engine
-
-Status: Research Candidate
-
-Allow NOAH to internally ask questions such as:
-
-- Why?
-- What is the user's real goal?
-- Is there a better solution?
-- What can be learned?
-
-Purpose:
-
-Improve understanding rather than simply generating answers.
-
----
-
-## Reflection Engine
-
-Status: Future Idea
-
-Allow NOAH to review completed tasks and learn from past experiences.
-
-Potential abilities:
-
-- Analyze successes and failures
-- Improve future planning
-- Identify recurring patterns
-
----
-
-## Multi-Agent Discussion
-
-Status: Future Idea
-
-Allow multiple AI agents to discuss different approaches before presenting recommendations.
-
-Purpose:
-
-Increase reasoning quality while reducing bias.
-
----
-
-# Memory
-
-## Long-term Memory Architecture
-
-Status: Future Idea
-
-Research scalable long-term memory.
-
-Potential topics:
-
-- Knowledge organization
-- Context retrieval
-- Experience history
-
----
-
-# Personality
-
-## Emotion-aware Interaction
-
-Status: Future Idea
-
-Explore ways for NOAH to express emotion naturally without pretending to have human feelings.
-
-Goal:
-
-Create a warmer and more natural long-term interaction.
-
----
-
-# Self Evolution
-
-## Self-Improvement Framework
-
-Status: Future Idea
-
-Allow NOAH to continuously improve workflows, prompts, and automation through accumulated experience.
-
-The final decision should always remain with the user.
-
----
-
-# Security
-
-## Security Guardian
-
-Status: Future Idea
-
-Continuously monitor the system for potential risks.
-
-Possible responsibilities:
-
-- Detect vulnerabilities
-- Recommend improvements
-- Monitor infrastructure
-- Report unusual activities
-
----
-
-# Research
-
-## Dream Mode
-
-Status: Experimental
-
-During idle time, NOAH may organize knowledge, summarize experiences, discover relationships between information, and prepare future suggestions.
-
-This mode never performs actions without user approval.
-
-
----
-
-# Long-term Research Strategy
-
-Project NOAH is expected to discover its most valuable ideas through continuous development rather than defining everything from the beginning.
-
-Core algorithms, reasoning systems, and autonomous capabilities should evolve through experimentation, experience, and collaboration.
-
-Not every research idea should be documented publicly before it is mature enough to be implemented.
-
-The goal is not to invent everything today.
-
-The goal is to continuously discover better ways to build NOAH.
-
-## Future Research
-
-- Define the long-term role of external AI services.
-- NOAH should remain the primary intelligence while external AI acts as optional collaborators.
+Detailed research is documented in `/12-Research`.
