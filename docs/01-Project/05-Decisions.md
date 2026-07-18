@@ -6,6 +6,8 @@ Not every idea should be implemented immediately.
 
 Some ideas require research, experimentation, and experience before becoming part of NOAH.
 
+Each decision captures not only an idea, but also the reasoning behind it, allowing future versions of NOAH to understand why the decision was made.
+
 ---
 
 # Decision 001
@@ -16,15 +18,23 @@ Curiosity Engine
 
 ## Status
 
-Research
+🟡 Research
+
+## Motivation
+
+NOAH is designed to become more than an AI assistant.
+
+To achieve this, it must understand not only what the user asks, but also why the task exists.
+
+Understanding intent enables better collaboration than simply generating responses.
 
 ## Background
 
-One of the long-term goals of Project NOAH is to create a trusted AI companion that does more than simply respond to instructions.
+Traditional AI systems respond to requests.
 
-Rather than simply answering questions, NOAH should learn to understand the purpose behind every task.
+Project NOAH aims to go one step further by exploring user intent, identifying opportunities for improvement, and learning from every interaction.
 
-Understanding the user's intention is more valuable than simply generating an answer.
+---
 
 ## Idea
 
@@ -37,9 +47,11 @@ Introduce an internal reasoning process that continuously asks questions such as
 - Have we solved something similar before?
 - What can be learned from this?
 
-The Curiosity Engine should improve understanding rather than interrupt the user with unnecessary questions.
+The Curiosity Engine should improve understanding without interrupting the user unnecessarily.
 
 Its purpose is to strengthen reasoning, planning, and long-term collaboration.
+
+---
 
 ## Expected Benefits
 
@@ -50,10 +62,21 @@ Its purpose is to strengthen reasoning, planning, and long-term collaboration.
 - Smarter collaboration
 - Stronger reasoning before action
 
+---
+
+## Open Questions
+
+- Should the Curiosity Engine always run, or only when needed?
+- How should it balance curiosity with response speed?
+- How can it avoid unnecessary or repetitive reasoning?
+- Which memories should influence its reasoning process?
+
+---
+
 ## Notes
 
 This is considered a long-term research topic.
 
 The implementation is intentionally left open.
 
-As Project NOAH evolves, this concept will be revisited and refined through research and experience.
+As Project NOAH evolves, this concept will be revisited, validated, and refined through research and real-world experience.
