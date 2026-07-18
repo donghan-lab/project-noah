@@ -2,11 +2,15 @@
 
 This document defines the architecture, responsibilities, and design principles of the workflow automation layer in Project NOAH.
 
+This document serves as the reference for designing, implementing, and maintaining the workflow automation layer throughout Project NOAH.
+
 ---
 
 ## Purpose
 
 The workflow automation layer is responsible for orchestrating services, automating repetitive tasks, and enabling communication between AI components and external systems.
+
+The workflow layer connects independent services into cohesive and automated processes.
 
 Project NOAH uses n8n as its primary workflow automation platform.
 
@@ -24,6 +28,8 @@ Project NOAH uses n8n because it provides:
 - High extensibility through custom nodes
 
 n8n enables Project NOAH to automate complex processes without unnecessary application code.
+
+Workflows should minimize duplicated logic and reduce manual operations.
 
 ---
 
@@ -79,6 +85,8 @@ Typical responsibilities include:
 - Summarization
 - Decision support
 
+AI services should remain loosely coupled so they can be replaced or expanded independently.
+
 ---
 
 ## User Interface Integration
@@ -105,6 +113,8 @@ Every workflow should follow these principles:
 - Version control whenever possible
 
 Large workflows should be divided into smaller reusable workflows.
+
+Prefer simple workflows over complex workflows whenever possible.
 
 ---
 
@@ -150,7 +160,7 @@ These values must never be committed to Git.
 
 ## Backup Strategy
 
-Future backup strategy includes:
+Future backup strategy should include:
 
 - Workflow exports
 - Credential backups
@@ -184,7 +194,7 @@ Additional services may be added as Project NOAH evolves.
 
 Project NOAH follows these workflow automation principles:
 
-- Automation first
+- Purpose-driven automation
 - Documentation before implementation
 - Docker-first deployment
 - Secure integration
@@ -215,10 +225,11 @@ Project NOAH follows these workflow automation principles:
 
 ### Last Updated
 
-- 2026-07-13
+- 2026-07-19
 
 ### Related Documents
 
-- 09-Development-Environment.md
-- 10-Infrastructure.md
-- 11-Database.md
+- Architecture.md
+- Development-Environment.md
+- Infrastructure.md
+- Database.md
