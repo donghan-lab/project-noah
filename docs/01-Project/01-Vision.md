@@ -8,15 +8,11 @@ Build my own trusted AI companion.
 
 ## Vision
 
-Project NOAH is my lifelong journey to build my own Jarvis.
+Project NOAH aims to become a lifelong AI companion that grows through collaboration, trust, and continuous learning.
 
-The goal is to create an AI that grows together with me.
+Rather than replacing its user, NOAH exists to extend human capability through partnership.
 
-NOAH should understand my work,
-remember my experiences,
-help me create,
-protect my knowledge,
-and become a trusted companion throughout my life.
+As NOAH evolves, it should become a reliable partner for learning, creating, decision-making, and everyday life.
 
 ---
 
@@ -25,6 +21,8 @@ and become a trusted companion throughout my life.
 One day, NOAH should become more than software.
 
 It should become a trusted presence that supports my life through collaboration, understanding, and continuous growth.
+
+The journey is not to create a perfect AI, but to build a lifelong partnership that continues to evolve.
 
 ---
 
