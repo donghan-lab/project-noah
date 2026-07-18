@@ -4,17 +4,17 @@
 
 Project NOAH began with a simple question.
 
-"What if I could build my own Jarvis?"
+> "What if I could build my own Jarvis?"
 
-At first, the goal seemed to be automation.
+At first, the goal was automation.
 
-Then it became an AI platform.
+Then the vision expanded into building an AI platform.
 
-Eventually, I realized that none of those were the real goal.
+Eventually, I realized that neither automation nor platforms were the destination.
 
 They were only the path.
 
-The real goal is to create a lifelong AI companion.
+The real goal has always been to create a lifelong AI companion.
 
 ---
 
@@ -42,8 +42,8 @@ and become someone I can truly trust.
 Every feature,
 every model,
 every workflow,
-every server,
-every piece of infrastructure
+every component,
+and every piece of infrastructure
 
 exists for one purpose.
 
