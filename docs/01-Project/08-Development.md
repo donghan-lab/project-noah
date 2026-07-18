@@ -4,6 +4,8 @@ This document defines the development workflow, conventions, and engineering pri
 
 The goal is to build NOAH in a consistent, maintainable, and reliable way.
 
+These guidelines help ensure that every contribution follows the same engineering standards and long-term vision.
+
 ---
 
 # Development Philosophy
@@ -25,52 +27,62 @@ Every feature should follow this workflow:
 1. Create or update an Issue.
 2. Plan the implementation.
 3. Implement the feature.
-4. Test the result.
-5. Commit changes.
-6. Update documentation if necessary.
-7. Push changes to GitHub.
+4. Review the implementation.
+5. Test the result.
+6. Commit changes.
+7. Update documentation if necessary.
+8. Push changes to GitHub.
 
 ---
 
 # Branch Strategy
 
-main
+## main
 
 - Stable branch
 - Always deployable
 
-feature/<name>
+## feature/<name>
 
 - New features
+- Short-lived branches for feature development
 
-fix/<name>
+## fix/<name>
 
 - Bug fixes
+- Focused on resolving specific issues
 
-research/<name>
+## research/<name>
 
 - Experiments and research
+- May not become part of the final implementation
 
 ---
 
 # Commit Convention
 
-docs:
+**docs:**
+
 Documentation changes
 
-feat:
+**feat:**
+
 New features
 
-fix:
+**fix:**
+
 Bug fixes
 
-refactor:
-Code improvements
+**refactor:**
 
-chore:
+Code improvements without changing behavior
+
+**chore:**
+
 Maintenance and project structure
 
-test:
+**test:**
+
 Testing
 
 ---
@@ -78,6 +90,8 @@ Testing
 # Documentation Rules
 
 Documentation is part of the project.
+
+Documentation should evolve together with the implementation while preserving consistency across the project.
 
 Whenever the architecture or philosophy changes, the documentation should be updated accordingly.
 
@@ -94,6 +108,8 @@ Whenever the architecture or philosophy changes, the documentation should be upd
 # Folder Responsibilities
 
 Each directory has a single responsibility.
+
+Each directory should have a clear and well-defined purpose.
 
 - docs/ → Documentation
 - agents/ → AI agents
@@ -115,6 +131,8 @@ NOAH should think proactively.
 
 NOAH should understand intentions before generating answers.
 
+AI should assist the user, not replace the user's judgment.
+
 Important actions require user approval.
 
 Trust should be earned before autonomy.
@@ -133,6 +151,8 @@ Build modular components.
 
 Avoid unnecessary dependencies.
 
+Favor readability over cleverness.
+
 Write code that future-you can understand.
 
 ---
@@ -144,3 +164,5 @@ Project NOAH is not a short-term project.
 It is a lifelong journey.
 
 Every commit is another step toward building my own Jarvis.
+
+Long-term consistency is more valuable than short-term speed.
