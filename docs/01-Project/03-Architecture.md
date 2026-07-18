@@ -6,6 +6,10 @@ Project NOAH is a personal AI operating system designed to build a trusted AI co
 
 At the center of the system is NOAH Core, which coordinates planning, memory, AI collaboration, and automation while keeping the user involved in important decisions.
 
+Every subsystem exists to support the same goal: building a trusted AI companion through collaboration rather than replacement.
+
+The architecture reflects the core principles of Project NOAH, including Human Partnership, Trust Before Intelligence, Local First, Continuous Growth, and Modular Architecture.
+
 The architecture is designed to evolve continuously as NOAH grows together with its user.
 
 ---
@@ -68,11 +72,13 @@ Provides feedback that helps NOAH grow.
 
 Acts as the central coordinator.
 
-Maintains context.
+Maintains system-wide context.
 
 Coordinates every subsystem.
 
 Protects user data.
+
+Ensures every subsystem follows the core principles of Project NOAH.
 
 ---
 
@@ -86,6 +92,8 @@ Suggests improvements.
 
 Coordinates multi-step workflows.
 
+Never executes critical decisions without user approval.
+
 ---
 
 ### AI Router
@@ -94,13 +102,17 @@ Selects the most suitable AI model for each task.
 
 Balances speed, quality, privacy, and cost.
 
+Prefers the most appropriate model over the most powerful one.
+
 ---
 
 ### Memory
 
 Stores knowledge, experiences, user preferences, project history, and important decisions.
 
-Memory allows NOAH to continuously improve over time.
+Preserves context across conversations and projects.
+
+Allows NOAH to continuously improve over time.
 
 ---
 
@@ -110,11 +122,15 @@ Connects NOAH with external tools.
 
 Examples include GitHub, Discord, OBS, browsers, file management, and automation.
 
+Skills remain modular and independently replaceable.
+
 ---
 
 ### Infrastructure
 
 Provides computing power, storage, networking, and remote execution.
+
+Infrastructure should evolve without changing higher-level architecture.
 
 ---
 
@@ -134,7 +150,8 @@ Provides computing power, storage, networking, and remote execution.
 | Remote Access | Tailscale (Planned) |
 
 > This stack represents the initial planned technologies for Project NOAH.
-> It will evolve together with the project.
+>
+> Specific technologies may change over time, but the architectural principles should remain stable.
 
 ---
 
@@ -142,10 +159,10 @@ Provides computing power, storage, networking, and remote execution.
 
 Future capabilities may include:
 
+- Continuous Learning
 - Multi-Agent Collaboration
 - Voice Interface
 - Personal Knowledge Graph
 - Smart Home Integration
 - Self-Optimization
-- Continuous Learning
 - Autonomous Workflow Execution (with User Approval)
