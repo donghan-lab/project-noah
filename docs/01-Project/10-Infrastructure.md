@@ -4,6 +4,8 @@ This document defines the infrastructure principles of Project NOAH.
 
 The purpose of these guidelines is to keep the system simple, scalable, and easy to maintain as Project NOAH grows.
 
+This document establishes the infrastructure standards that support the long-term growth of Project NOAH.
+
 ---
 
 # Philosophy
@@ -13,6 +15,8 @@ Infrastructure should be stable before it becomes complex.
 Every service must have a clear purpose.
 
 Scalability should never sacrifice maintainability.
+
+Infrastructure should evolve without disrupting existing services.
 
 ---
 
@@ -28,7 +32,7 @@ docker/
 n8n/
 ```
 
-Each directory has a single responsibility.
+Each directory exists for a specific purpose and should avoid overlapping responsibilities.
 
 ---
 
@@ -42,6 +46,8 @@ Persistent services should use dedicated Docker volumes.
 
 All containers communicate through a shared Docker network.
 
+Containers should remain as independent as possible.
+
 ---
 
 # AI Runtime
@@ -52,6 +58,8 @@ Docker services communicate with Ollama through the local network.
 
 This approach provides better GPU performance and simplifies model management.
 
+This design allows AI services to be upgraded independently from containerized applications.
+
 ---
 
 # Database
@@ -60,11 +68,15 @@ PostgreSQL is the primary relational database.
 
 Additional databases may be introduced only when they provide clear benefits.
 
+Each database should have a clearly defined responsibility.
+
 ---
 
 # Networking
 
 Use a single shared Docker network unless service isolation becomes necessary.
+
+Network complexity should grow only when required.
 
 ---
 
@@ -73,6 +85,8 @@ Use a single shared Docker network unless service isolation becomes necessary.
 Persistent data should never be stored inside containers.
 
 Each service must own its dedicated volume.
+
+Persistent data should remain portable and recoverable.
 
 ---
 
@@ -96,6 +110,8 @@ Configuration files should remain separate from application logic.
 
 Docker resources should use the following naming convention.
 
+Consistent naming improves maintainability and readability.
+
 Examples:
 
 - noah-postgres
@@ -116,3 +132,5 @@ The infrastructure is designed to support future services, including:
 - Additional AI services
 
 without requiring major structural changes.
+
+Future technologies should integrate without requiring fundamental architectural changes.
