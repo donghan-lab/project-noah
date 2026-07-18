@@ -2,7 +2,9 @@
 
 Project NOAH is a lifelong journey.
 
-This roadmap represents the planned evolution of NOAH from an AI-powered workflow into a trusted AI companion.
+This roadmap outlines the planned evolution of NOAH from an AI-powered workflow into a trusted AI companion.
+
+Each phase builds upon the previous one, gradually expanding NOAH's capabilities while remaining aligned with the core principles of Project NOAH.
 
 ---
 
@@ -11,6 +13,8 @@ This roadmap represents the planned evolution of NOAH from an AI-powered workflo
 ## Goal
 
 Establish the philosophy and architecture of Project NOAH.
+
+Without a solid foundation, every future component would lack consistency and direction.
 
 ### Objectives
 
@@ -30,6 +34,8 @@ Status: ✅ Completed
 ## Goal
 
 Build the core infrastructure that powers NOAH.
+
+Reliable infrastructure provides the foundation for every future capability, including memory, intelligence, and automation.
 
 ### Objectives
 
@@ -52,6 +58,8 @@ Status: 🚧 In Progress
 
 Enable NOAH to remember and understand.
 
+Memory allows NOAH to preserve knowledge, maintain context, and continuously improve through experience.
+
 ### Objectives
 
 - Knowledge database
@@ -70,6 +78,8 @@ Status: ⏳ Planned
 ## Goal
 
 Expand NOAH's capabilities.
+
+Skills allow NOAH to interact with external tools and perform useful real-world tasks.
 
 ### Objectives
 
@@ -91,6 +101,8 @@ Status: ⏳ Planned
 
 Teach NOAH how to think.
 
+Intelligence enables NOAH to reason, plan, coordinate workflows, and choose the most appropriate actions while keeping the user involved in important decisions.
+
 ### Objectives
 
 - AI Router
@@ -109,6 +121,8 @@ Status: ⏳ Planned
 ## Goal
 
 Transform NOAH into a trusted AI companion.
+
+The ultimate goal is not autonomy, but lifelong collaboration built on trust, memory, and continuous growth.
 
 ### Objectives
 
@@ -136,4 +150,8 @@ Future research may include:
 - Autonomous reasoning
 - Personal AGI research
 
-Project NOAH will continue to evolve together with me.
+This roadmap will continue to evolve as Project NOAH grows.
+
+The destination remains the same:
+
+**A lifelong trusted AI companion.**
