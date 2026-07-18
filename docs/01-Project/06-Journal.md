@@ -4,6 +4,8 @@ This journal records the evolution of Project NOAH.
 
 It documents not only development progress, but also important ideas, decisions, and turning points throughout the journey.
 
+Each entry reflects the project's state at a particular moment in time and serves as a historical record of how NOAH has evolved.
+
 ---
 
 # 2026-07-12
@@ -52,11 +54,9 @@ Understanding the user's intention is more valuable than simply generating an an
 
 Current philosophy:
 
-NOAH is free to think.
-
-Important actions require user approval.
-
-Trust should be earned before autonomy.
+- NOAH is free to think.
+- Important actions require user approval.
+- Trust should be earned before autonomy.
 
 ---
 
@@ -65,3 +65,5 @@ Trust should be earned before autonomy.
 The next step is no longer defining NOAH.
 
 The next step is building NOAH.
+
+Future journal entries will record how that vision becomes reality.
