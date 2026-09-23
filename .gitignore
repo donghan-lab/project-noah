@@ -1,5 +1,7 @@
 # Environment
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -15,5 +17,3 @@ __pycache__/
 
 # Windows
 Thumbs.db
-
-compose/.env
