@@ -5,6 +5,10 @@
 
 # Python
 __pycache__/
+.venv/
+.deps/
+.pip-cache/
+.noah/
 
 # VS Code
 .vscode/
