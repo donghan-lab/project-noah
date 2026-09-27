@@ -31,7 +31,7 @@ def _failure(request_id, code, category, http_status, message, task_id=None, exe
             "code": code,
             "category": category,
             "message": message,
-            "recoverable": category == "Environment Failure",
+            "recoverable": category in {"Environment Failure", "External Service Failure", "Timeout"},
             # A write may have committed before a connection failure was observed.
             "retryable": False,
         },
@@ -91,6 +91,14 @@ def _memory_result(row):
         "project_id": str(row["project_id"]) if row["project_id"] else None,
         "created_at": row["created_at"].isoformat(),
     }
+
+
+def _readable_memory_filter(actor):
+    """The same user/project visibility rule for listing and word search."""
+    return """((m.scope = 'user' AND m.owner_user_id = %s)
+        OR (m.scope = 'project' AND EXISTS (
+            SELECT 1 FROM noah.project_memberships membership
+            WHERE membership.project_id = m.project_id AND membership.user_id = %s)))""", [actor, actor]
 
 
 def _list_options(query):
@@ -284,13 +292,9 @@ def list_memories(token, query="", connection_factory=connect):
                 scope, limit, position = _list_options(query)
             except RequestFailure as error:
                 return _failure(request_id, error.code, error.category, error.http_status, str(error))
+            visibility, params = _readable_memory_filter(actor)
             sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at
-                FROM noah.memories m
-                WHERE ((m.scope = 'user' AND m.owner_user_id = %s)
-                    OR (m.scope = 'project' AND EXISTS (
-                        SELECT 1 FROM noah.project_memberships membership
-                        WHERE membership.project_id = m.project_id AND membership.user_id = %s)))"""
-            params = [actor, actor]
+                FROM noah.memories m WHERE """ + visibility
             if scope:
                 sql += " AND m.scope = %s"
                 params.append(scope)
@@ -305,6 +309,34 @@ def list_memories(token, query="", connection_factory=connect):
                 "status": "succeeded",
                 "memories": [_memory_result(row) for row in page],
                 "next_cursor": _page_cursor(page[-1]) if len(rows) > limit else None,
+            }
+    except (psycopg.Error, OSError, ValueError):
+        _audit_db_failure(request_id)
+        return _failure(request_id, "DATABASE_UNAVAILABLE", "Environment Failure", 503, "Storage is unavailable")
+
+
+def search_memories(token, scope, terms, request_id, connection_factory=connect, limit=5):
+    """Bounded literal word search over the existing authorized Memory scope."""
+    try:
+        with connection_factory() as connection:
+            actor = _actor_for_token(connection, token)
+            if not actor:
+                return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401, "Authentication required")
+            visibility, params = _readable_memory_filter(actor)
+            sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at
+                FROM noah.memories m WHERE """ + visibility
+            if scope != "all":
+                sql += " AND m.scope = %s"
+                params.append(scope)
+            for term in terms:
+                sql += " AND strpos(lower(m.content), lower(%s)) > 0"
+                params.append(term)
+            sql += " ORDER BY m.created_at DESC, m.id DESC LIMIT %s"
+            params.append(limit + 1)
+            rows = connection.execute(sql, params).fetchall()
+            return 200, {
+                "memories": [_memory_result(row) for row in rows[:limit]],
+                "truncated": len(rows) > limit,
             }
     except (psycopg.Error, OSError, ValueError):
         _audit_db_failure(request_id)

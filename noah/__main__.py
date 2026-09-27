@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 import psycopg
 
 from .db import initialize
+from .memory_query import query_memory
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
 
 
@@ -29,22 +30,24 @@ class Handler(BaseHTTPRequestHandler):
         return value[7:] if value.startswith("Bearer ") else ""
 
     def do_POST(self):
-        if urlsplit(self.path).path != "/memories":
+        path = urlsplit(self.path).path
+        if path not in {"/memories", "/memories/query"}:
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
+        operation = save_memory if path == "/memories" else query_memory
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             length = -1
         if length < 0 or length > 40000:
-            status, body = save_memory(None, self._token())
+            status, body = operation(None, self._token())
             self._respond(status, body)
             return
         try:
             payload = json.loads(self.rfile.read(length))
         except (json.JSONDecodeError, UnicodeDecodeError):
             payload = None
-        status, body = save_memory(payload, self._token())
+        status, body = operation(payload, self._token())
         self._respond(status, body)
 
     def do_GET(self):
@@ -62,7 +65,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="NOAH first memory vertical slice")
+    parser = argparse.ArgumentParser(description="NOAH local memory API")
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser("init", help="Create NOAH tables without deleting existing data")
     user = commands.add_parser("provision-user", help="Local operator only; prints a token once")
