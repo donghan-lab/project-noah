@@ -1,10 +1,13 @@
 """Harness-like boundary for one authorized memory capability."""
 
+import base64
+import binascii
 import hashlib
 import json
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import parse_qs
 from uuid import UUID, uuid4
 
 import psycopg
@@ -72,6 +75,68 @@ def _authorized(connection, actor, scope, owner, project, write):
     return bool(row and (row["can_write"] or not write))
 
 
+def _actor_for_token(connection, token):
+    token_hash = hashlib.sha256(token.encode()).hexdigest() if token else ""
+    row = connection.execute(
+        "SELECT user_id FROM noah.api_tokens WHERE token_hash = %s AND revoked_at IS NULL",
+        (token_hash,),
+    ).fetchone()
+    return row["user_id"] if row else None
+
+
+def _memory_result(row):
+    return {
+        "id": str(row["id"]), "scope": row["scope"], "content": row["content"],
+        "owner_user_id": str(row["owner_user_id"]) if row["owner_user_id"] else None,
+        "project_id": str(row["project_id"]) if row["project_id"] else None,
+        "created_at": row["created_at"].isoformat(),
+    }
+
+
+def _list_options(query):
+    try:
+        if len(query) > 1024:
+            raise ValueError("Query too long")
+        params = parse_qs(query, keep_blank_values=True, strict_parsing=True, max_num_fields=3)
+    except ValueError:
+        raise RequestFailure("INVALID_QUERY", "Invalid Input", 400, "Invalid list query") from None
+    if set(params) - {"scope", "limit", "cursor"} or any(len(values) != 1 for values in params.values()):
+        raise RequestFailure("INVALID_QUERY", "Invalid Input", 400, "Invalid list query")
+    scope = params.get("scope", [None])[0]
+    if scope is not None and scope not in {"user", "project"}:
+        raise RequestFailure("INVALID_SCOPE", "Invalid Input", 400, "Scope must be user or project")
+    raw_limit = params.get("limit", ["20"])[0]
+    if not raw_limit or len(raw_limit) > 3 or any(char not in "0123456789" for char in raw_limit):
+        raise RequestFailure("INVALID_LIMIT", "Invalid Input", 400, "Limit must be between 1 and 100")
+    limit = int(raw_limit)
+    if not 1 <= limit <= 100:
+        raise RequestFailure("INVALID_LIMIT", "Invalid Input", 400, "Limit must be between 1 and 100")
+    raw_cursor = params.get("cursor", [None])[0]
+    if raw_cursor is None:
+        return scope, limit, None
+    try:
+        if not raw_cursor or len(raw_cursor) > 256:
+            raise ValueError("Invalid cursor length")
+        decoded = base64.b64decode(raw_cursor + "=" * (-len(raw_cursor) % 4), altchars=b"-_", validate=True)
+        position = json.loads(decoded)
+        if not isinstance(position, dict) or set(position) != {"created_at", "id"}:
+            raise ValueError("Invalid cursor shape")
+        if not isinstance(position["created_at"], str) or not isinstance(position["id"], str):
+            raise ValueError("Invalid cursor values")
+        created_at = datetime.fromisoformat(position["created_at"])
+        if created_at.tzinfo is None or created_at.utcoffset() is None:
+            raise ValueError("Cursor timestamp must include timezone")
+        memory_id = UUID(position["id"])
+    except (ValueError, TypeError, UnicodeDecodeError, binascii.Error):
+        raise RequestFailure("INVALID_CURSOR", "Invalid Input", 400, "Invalid page cursor") from None
+    return scope, limit, (created_at, memory_id)
+
+
+def _page_cursor(row):
+    value = json.dumps({"created_at": row["created_at"].isoformat(), "id": str(row["id"])}, separators=(",", ":"))
+    return base64.urlsafe_b64encode(value.encode()).decode().rstrip("=")
+
+
 def _record_rejection(connection, request_id, actor, failure):
     execution_id = uuid4()
     connection.execute(
@@ -107,15 +172,10 @@ def save_memory(payload, token, connection_factory=connect, insert_memory=None):
     task_id = execution_id = None
     try:
         with connection_factory() as connection:
-            token_hash = hashlib.sha256(token.encode()).hexdigest() if token else ""
-            row = connection.execute(
-                "SELECT user_id FROM noah.api_tokens WHERE token_hash = %s AND revoked_at IS NULL",
-                (token_hash,),
-            ).fetchone()
-            if not row:
+            actor = _actor_for_token(connection, token)
+            if not actor:
                 return _record_rejection(connection, request_id, None,
                     RequestFailure("UNAUTHENTICATED", "Permission Denied", 401, "Authentication required"))
-            actor = row["user_id"]
             try:
                 content, scope, owner, project = _validate(payload)
                 if not _authorized(connection, actor, scope, owner, project, write=True):
@@ -197,24 +257,55 @@ def read_memory(memory_id, token, connection_factory=connect):
         return _failure(request_id, "INVALID_TARGET", "Invalid Input", 400, "Valid memory ID required")
     try:
         with connection_factory() as connection:
-            token_hash = hashlib.sha256(token.encode()).hexdigest() if token else ""
-            actor_row = connection.execute(
-                "SELECT user_id FROM noah.api_tokens WHERE token_hash = %s AND revoked_at IS NULL", (token_hash,),
-            ).fetchone()
-            if not actor_row:
+            actor = _actor_for_token(connection, token)
+            if not actor:
                 return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401, "Authentication required")
             row = connection.execute(
                 "SELECT id, owner_user_id, project_id, scope, content, created_at FROM noah.memories WHERE id = %s",
                 (parsed_id,),
             ).fetchone()
-            if not row or not _authorized(connection, actor_row["user_id"], row["scope"], row["owner_user_id"], row["project_id"], write=False):
+            if not row or not _authorized(connection, actor, row["scope"], row["owner_user_id"], row["project_id"], write=False):
                 return _failure(request_id, "MEMORY_NOT_FOUND", "Permission Denied", 404, "Memory not found")
-            return 200, {"status": "succeeded", "memory": {
-                "id": str(row["id"]), "scope": row["scope"], "content": row["content"],
-                "owner_user_id": str(row["owner_user_id"]) if row["owner_user_id"] else None,
-                "project_id": str(row["project_id"]) if row["project_id"] else None,
-                "created_at": row["created_at"].isoformat(),
-            }}
+            return 200, {"status": "succeeded", "memory": _memory_result(row)}
+    except (psycopg.Error, OSError, ValueError):
+        _audit_db_failure(request_id)
+        return _failure(request_id, "DATABASE_UNAVAILABLE", "Environment Failure", 503, "Storage is unavailable")
+
+
+def list_memories(token, query="", connection_factory=connect):
+    """List only memories readable by the current principal using keyset pagination."""
+    request_id = uuid4()
+    try:
+        with connection_factory() as connection:
+            actor = _actor_for_token(connection, token)
+            if not actor:
+                return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401, "Authentication required")
+            try:
+                scope, limit, position = _list_options(query)
+            except RequestFailure as error:
+                return _failure(request_id, error.code, error.category, error.http_status, str(error))
+            sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at
+                FROM noah.memories m
+                WHERE ((m.scope = 'user' AND m.owner_user_id = %s)
+                    OR (m.scope = 'project' AND EXISTS (
+                        SELECT 1 FROM noah.project_memberships membership
+                        WHERE membership.project_id = m.project_id AND membership.user_id = %s)))"""
+            params = [actor, actor]
+            if scope:
+                sql += " AND m.scope = %s"
+                params.append(scope)
+            if position:
+                sql += " AND (m.created_at, m.id) < (%s, %s)"
+                params.extend(position)
+            sql += " ORDER BY m.created_at DESC, m.id DESC LIMIT %s"
+            params.append(limit + 1)
+            rows = connection.execute(sql, params).fetchall()
+            page = rows[:limit]
+            return 200, {
+                "status": "succeeded",
+                "memories": [_memory_result(row) for row in page],
+                "next_cursor": _page_cursor(page[-1]) if len(rows) > limit else None,
+            }
     except (psycopg.Error, OSError, ValueError):
         _audit_db_failure(request_id)
         return _failure(request_id, "DATABASE_UNAVAILABLE", "Environment Failure", 503, "Storage is unavailable")

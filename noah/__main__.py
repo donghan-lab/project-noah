@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 import psycopg
 
 from .db import initialize
-from .service import create_project, read_memory, provision_user, save_memory
+from .service import create_project, list_memories, read_memory, provision_user, save_memory
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -48,7 +48,12 @@ class Handler(BaseHTTPRequestHandler):
         self._respond(status, body)
 
     def do_GET(self):
-        path = urlsplit(self.path).path
+        parsed = urlsplit(self.path)
+        path = parsed.path
+        if path == "/memories":
+            status, body = list_memories(self._token(), parsed.query)
+            self._respond(status, body)
+            return
         if not path.startswith("/memories/"):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
