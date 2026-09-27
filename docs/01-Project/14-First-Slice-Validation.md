@@ -1,6 +1,7 @@
 # First Vertical Slice Validation Record
 
 Date: 2026-09-24 (Asia/Seoul)
+Clarified: 2026-09-27 (test interpretation only; no tests rerun)
 
 ## Test environment and ownership
 
@@ -12,10 +13,12 @@ Command: `.venv\Scripts\python -m unittest discover -s tests -v`
 
 Result: **5 tests passed; 0 failures; 0 errors; 0 skips** (1.861 seconds).
 
+Of these, four integration tests used the isolated PostgreSQL 18 database. The fifth deliberately replaced the database connection with a failure to verify the 503 response and local fallback record; it did not connect to PostgreSQL.
+
 | Test | Result | Evidence checked |
 | --- | --- | --- |
 | `test_save_readback_and_durable_records` | Passed | PostgreSQL memory row, explicit provenance, completed Task, succeeded execution and verification timestamp |
-| `test_project_permission_and_server_restart_persistence` | Passed | HTTP save, new server instance readback, unrelated user denied |
+| `test_project_permission_and_server_restart_persistence` | Passed | HTTP save, readback after recreating the HTTP server instance in the same Python process, unrelated user denied |
 | `test_unauthorized_and_invalid_input_record_failures` | Passed | 401, 403 and 400 responses with failed execution records |
 | `test_database_write_failure_rolls_back_memory_and_marks_task_failed` | Passed | No memory row after injected write failure; failed Task and execution records |
 | `test_unavailable_database_returns_failure_without_leaking_request` | Passed | 503 response and credential-free local fallback failure record |
@@ -49,9 +52,9 @@ All three paths are ignored by Git through `.noah/`. The user approved removal o
 
 Docker Desktop was restored by the user. Before testing, `docker compose ps` showed the existing `noah-postgres` container running from `postgres:17`, container ID `9e490c9235b8`. The named volume `noah_noah-postgres-data` existed with creation time `2026-07-13T08:22:12Z`. The application connected using the unchanged local `compose/.env`; PostgreSQL reported server version `170010`. The `noah` schema was absent before this run.
 
-`python -m noah init` added only the first-slice `noah` schema and tables. It did not recreate the container or volume. The integration command `.venv\Scripts\python -m unittest discover -s tests -v` then completed with **5 passed, 0 failures, 0 errors, 0 skips** in 1.538 seconds. The five tests listed above all passed against the Compose PostgreSQL 17 database. The write-failure test was strengthened for this run: it caused a real foreign-key violation inside PostgreSQL, then verified that the memory insert rolled back while the Task and execution recorded failure.
+`python -m noah init` added only the first-slice `noah` schema and tables. It did not recreate the container or volume. The command `.venv\Scripts\python -m unittest discover -s tests -v` then completed with **5 passed, 0 failures, 0 errors, 0 skips** in 1.538 seconds. Four integration tests used the Compose PostgreSQL 17 database. The fifth deliberately replaced the database connection with a failure and did not connect to PostgreSQL. The write-failure integration test was strengthened for this run: it caused a real foreign-key violation inside PostgreSQL, then verified that the memory insert rolled back while the Task and execution recorded failure.
 
-The HTTP test saved a project memory, stopped its first application server, started a new server instance, read the memory again, and confirmed an unrelated user could not read it. Other tests verified successful personal memory save and independent database readback, unauthenticated and scope-denied writes, invalid content, and the credential-free 503 fallback. After the test fixture cleanup, each of `noah.users`, `noah.api_tokens`, `noah.projects`, `noah.project_memberships`, `noah.tasks`, `noah.memories` and `noah.execution_records` had zero rows. The schema remains available for first-slice use.
+The HTTP test saved a project memory, stopped its first HTTP server instance, created a second HTTP server instance in the same Python process, read the memory again, and confirmed an unrelated user could not read it. A full Python process restart was not tested. Other tests verified successful personal memory save and independent database readback, unauthenticated and scope-denied writes, invalid content, and the credential-free 503 fallback. After the test fixture cleanup, each of `noah.users`, `noah.api_tokens`, `noah.projects`, `noah.project_memberships`, `noah.tasks`, `noah.memories` and `noah.execution_records` had zero rows. The schema remains available for first-slice use.
 
 After testing, `docker compose ps` still showed the same running container ID. `docker volume inspect` showed the same named volume and creation time. No Compose down, volume removal, prune or reset command was run. Existing non-NOAH database objects were not targeted by the schema or test cleanup.
 
