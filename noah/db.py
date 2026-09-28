@@ -41,3 +41,4 @@ def connect():
 def initialize() -> None:
     with connect() as connection:
         connection.execute((ROOT / "database" / "001_first_slice.sql").read_text(encoding="utf-8"))
+        connection.execute((ROOT / "database" / "002_memory_write_idempotency.sql").read_text(encoding="utf-8"))

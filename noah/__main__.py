@@ -35,19 +35,22 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
         operation = save_memory if path == "/memories" else query_memory
+        options = {"idempotency_key": self.headers.get("Idempotency-Key")} if path == "/memories" else {}
+        if path == "/memories" and len(self.headers.get_all("Idempotency-Key", [])) > 1:
+            options["idempotency_key"] = ""
         try:
             length = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             length = -1
         if length < 0 or length > 40000:
-            status, body = operation(None, self._token())
+            status, body = operation(None, self._token(), **options)
             self._respond(status, body)
             return
         try:
             payload = json.loads(self.rfile.read(length))
         except (json.JSONDecodeError, UnicodeDecodeError):
             payload = None
-        status, body = operation(payload, self._token())
+        status, body = operation(payload, self._token(), **options)
         self._respond(status, body)
 
     def do_GET(self):

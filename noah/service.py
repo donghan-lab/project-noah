@@ -4,6 +4,7 @@ import base64
 import binascii
 import hashlib
 import json
+import re
 import secrets
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,7 +22,7 @@ class RequestFailure(Exception):
         self.code, self.category, self.http_status = code, category, http_status
 
 
-def _failure(request_id, code, category, http_status, message, task_id=None, execution_id=None):
+def _failure(request_id, code, category, http_status, message, task_id=None, execution_id=None, retryable=False):
     return http_status, {
         "status": "failed",
         "request_id": str(request_id),
@@ -33,7 +34,7 @@ def _failure(request_id, code, category, http_status, message, task_id=None, exe
             "message": message,
             "recoverable": category in {"Environment Failure", "External Service Failure", "Timeout"},
             # A write may have committed before a connection failure was observed.
-            "retryable": False,
+            "retryable": retryable,
         },
     }
 
@@ -157,7 +158,7 @@ def _record_rejection(connection, request_id, actor, failure):
     return _failure(request_id, failure.code, failure.category, failure.http_status, str(failure), execution_id=execution_id)
 
 
-def _audit_db_failure(request_id, task_id=None):
+def _audit_db_failure(request_id, task_id=None, code="DATABASE_UNAVAILABLE"):
     """Minimal local record when PostgreSQL cannot record its own failure."""
     try:
         path = ROOT / ".noah" / "failures.jsonl"
@@ -167,17 +168,69 @@ def _audit_db_failure(request_id, task_id=None):
                 "at": datetime.now(timezone.utc).isoformat(),
                 "request_id": str(request_id),
                 "task_id": str(task_id) if task_id else None,
-                "status": "failed",
+                "status": "unknown" if code == "WRITE_OUTCOME_UNKNOWN" else "failed",
                 "category": "Environment Failure",
-                "code": "DATABASE_UNAVAILABLE",
+                "code": code,
             }) + "\n")
     except OSError:
         pass
 
 
-def save_memory(payload, token, connection_factory=connect, insert_memory=None):
+def _write_fingerprint(content, scope, owner, project):
+    request = {"action": "save_memory", "content": content, "scope": scope,
+        "owner_user_id": str(owner) if owner else None, "project_id": str(project) if project else None}
+    canonical = json.dumps(request, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _prior_write(connection, actor, key_digest, fingerprint, content, scope, owner, project, request_id):
+    """Resolve one durable reservation without starting another write."""
+    row = connection.execute("""SELECT w.request_fingerprint, e.id AS execution_id,
+        e.request_id, e.task_id, e.status AS execution_status, e.memory_id,
+        e.failure_code, e.failure_category, t.status AS task_status,
+        t.verification_status, m.content, m.scope, m.owner_user_id, m.project_id
+        FROM noah.memory_write_requests w
+        JOIN noah.execution_records e ON e.id = w.execution_id
+        JOIN noah.tasks t ON t.id = e.task_id
+        LEFT JOIN noah.memories m ON m.id = e.memory_id
+        WHERE w.actor_user_id = %s AND w.key_digest = %s""",
+        (actor, key_digest)).fetchone()
+    if row is None:
+        return None
+    if row["request_fingerprint"].strip() != fingerprint:
+        return _record_rejection(connection, request_id, actor,
+            RequestFailure("IDEMPOTENCY_CONFLICT", "Invalid Input", 409,
+                "Idempotency-Key was already used for a different memory request"))
+    original_request = row["request_id"]
+    task_id, execution_id = row["task_id"], row["execution_id"]
+    if row["execution_status"] == "running" and row["task_status"] == "running":
+        return 202, {"status": "pending", "summary": "Original write has no final recorded outcome",
+            "request_id": str(original_request), "task_id": str(task_id),
+            "execution_id": str(execution_id), "retryable": True}
+    if (row["execution_status"] == "succeeded" and row["task_status"] == "completed"
+            and row["verification_status"] == "passed" and row["memory_id"]
+            and row["content"] == content and row["scope"] == scope
+            and row["owner_user_id"] == owner and row["project_id"] == project):
+        return 200, {"status": "succeeded", "summary": "Memory saved and verified",
+            "request_id": str(original_request), "task_id": str(task_id),
+            "execution_id": str(execution_id), "replayed": True,
+            "evidence": {"memory_id": str(row["memory_id"]), "verification": "database_readback"}}
+    if (row["execution_status"] == "failed" and row["task_status"] == "failed"
+            and row["verification_status"] == "failed" and row["failure_code"]):
+        status, body = _failure(original_request, row["failure_code"],
+            row["failure_category"] or "Environment Failure", 500,
+            "Original memory write failed; use a new key for a new attempt",
+            task_id, execution_id)
+        body["replayed"] = True
+        return status, body
+    return _failure(original_request, "IDEMPOTENCY_STATE_INCONSISTENT", "Environment Failure", 503,
+        "Original write state cannot be verified", task_id, execution_id)
+
+
+def save_memory(payload, token, connection_factory=connect, insert_memory=None, idempotency_key=None):
     request_id = uuid4()
     task_id = execution_id = None
+    key_digest = None
     try:
         with connection_factory() as connection:
             actor = _actor_for_token(connection, token)
@@ -188,8 +241,20 @@ def save_memory(payload, token, connection_factory=connect, insert_memory=None):
                 content, scope, owner, project = _validate(payload)
                 if not _authorized(connection, actor, scope, owner, project, write=True):
                     raise RequestFailure("SCOPE_DENIED", "Permission Denied", 403, "Memory scope is not writable")
+                if idempotency_key is not None:
+                    if not isinstance(idempotency_key, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,127}", idempotency_key):
+                        raise RequestFailure("INVALID_IDEMPOTENCY_KEY", "Invalid Input", 400,
+                            "Idempotency-Key must be 1 to 128 ASCII token characters")
+                    key_digest = hashlib.sha256(idempotency_key.encode("ascii")).hexdigest()
             except RequestFailure as failure:
                 return _record_rejection(connection, request_id, actor, failure)
+
+            if key_digest:
+                fingerprint = _write_fingerprint(content, scope, owner, project)
+                prior = _prior_write(connection, actor, key_digest, fingerprint,
+                    content, scope, owner, project, request_id)
+                if prior is not None:
+                    return prior
 
             task_id, execution_id, memory_id = uuid4(), uuid4(), uuid4()
             connection.execute(
@@ -200,6 +265,19 @@ def save_memory(payload, token, connection_factory=connect, insert_memory=None):
                 "INSERT INTO noah.execution_records (id, request_id, task_id, actor_user_id, status) VALUES (%s, %s, %s, %s, 'running')",
                 (execution_id, request_id, task_id, actor),
             )
+            if key_digest:
+                reserved = connection.execute("""INSERT INTO noah.memory_write_requests
+                    (actor_user_id, key_digest, request_fingerprint, execution_id)
+                    VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING RETURNING execution_id""",
+                    (actor, key_digest, fingerprint, execution_id)).fetchone()
+                if reserved is None:
+                    connection.rollback()
+                    prior = _prior_write(connection, actor, key_digest, fingerprint,
+                        content, scope, owner, project, request_id)
+                    if prior is not None:
+                        return prior
+                    return _failure(request_id, "IDEMPOTENCY_STATE_INCONSISTENT", "Environment Failure", 503,
+                        "Original write state cannot be verified")
             connection.commit()
 
             try:
@@ -227,13 +305,6 @@ def save_memory(payload, token, connection_factory=connect, insert_memory=None):
                     verified_at = now(), updated_at = now() WHERE id = %s""",
                     (memory_id, execution_id),
                 )
-                connection.commit()
-                return 201, {
-                    "status": "succeeded", "summary": "Memory saved and verified",
-                    "request_id": str(request_id), "task_id": str(task_id),
-                    "execution_id": str(execution_id),
-                    "evidence": {"memory_id": str(memory_id), "verification": "database_readback"},
-                }
             except (psycopg.Error, RequestFailure) as error:
                 connection.rollback()
                 category = error.category if isinstance(error, RequestFailure) else "Environment Failure"
@@ -250,12 +321,27 @@ def save_memory(payload, token, connection_factory=connect, insert_memory=None):
                     )
                     connection.commit()
                 except psycopg.Error:
-                    _audit_db_failure(request_id, task_id)
+                    _audit_db_failure(request_id, task_id, "WRITE_OUTCOME_UNKNOWN")
+                    return _failure(request_id, "WRITE_OUTCOME_UNKNOWN", "Environment Failure", 503,
+                        "Storage outcome cannot be verified", task_id, execution_id, retryable=bool(key_digest))
                 return _failure(request_id, code, category, 500, "Memory was not saved", task_id, execution_id)
+            try:
+                connection.commit()
+            except psycopg.Error:
+                # The commit may have succeeded server-side. Never overwrite it with failure.
+                _audit_db_failure(request_id, task_id, "WRITE_OUTCOME_UNKNOWN")
+                return _failure(request_id, "WRITE_OUTCOME_UNKNOWN", "Environment Failure", 503,
+                    "Storage outcome cannot be verified", task_id, execution_id, retryable=bool(key_digest))
+            return 201, {
+                "status": "succeeded", "summary": "Memory saved and verified",
+                "request_id": str(request_id), "task_id": str(task_id),
+                "execution_id": str(execution_id),
+                "evidence": {"memory_id": str(memory_id), "verification": "database_readback"},
+            }
     except (psycopg.Error, OSError, ValueError):
         _audit_db_failure(request_id, task_id)
         return _failure(request_id, "DATABASE_UNAVAILABLE", "Environment Failure", 503,
-            "Storage is unavailable", task_id, execution_id)
+            "Storage is unavailable", task_id, execution_id, retryable=bool(key_digest))
 
 
 def read_memory(memory_id, token, connection_factory=connect):
