@@ -2,12 +2,14 @@
 
 import argparse
 import json
+import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 import psycopg
 
 from .db import initialize
+from .document_query import query_project_documents
 from .memory_query import query_memory
 from .recovery import triage_memory_writes
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
@@ -31,11 +33,17 @@ class Handler(BaseHTTPRequestHandler):
         return value[7:] if value.startswith("Bearer ") else ""
 
     def do_POST(self):
-        path = urlsplit(self.path).path
-        if path not in {"/memories", "/memories/query"}:
+        parsed = urlsplit(self.path)
+        path = parsed.path
+        project_route = re.fullmatch(r"/projects/([^/]+)/documents/query", path)
+        if parsed.query or (path not in {"/memories", "/memories/query"} and not project_route):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
-        operation = save_memory if path == "/memories" else query_memory
+        if project_route:
+            operation = lambda payload, token, **_options: query_project_documents(
+                project_route.group(1), payload, token)
+        else:
+            operation = save_memory if path == "/memories" else query_memory
         options = {"idempotency_key": self.headers.get("Idempotency-Key")} if path == "/memories" else {}
         if path == "/memories" and len(self.headers.get_all("Idempotency-Key", [])) > 1:
             options["idempotency_key"] = ""

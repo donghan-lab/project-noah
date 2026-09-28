@@ -9,6 +9,7 @@ __pycache__/
 .deps/
 .pip-cache/
 .noah/
+config/project_documents.local.json
 
 # VS Code
 .vscode/
