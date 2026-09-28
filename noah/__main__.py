@@ -9,6 +9,7 @@ import psycopg
 
 from .db import initialize
 from .memory_query import query_memory
+from .recovery import triage_memory_writes
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
 
 
@@ -78,6 +79,7 @@ def main():
     project.add_argument("owner_user_id")
     server = commands.add_parser("serve", help="Serve the authenticated memory API")
     server.add_argument("--port", type=int, default=8080)
+    commands.add_parser("recovery-report", help="Read-only memory.save recovery triage")
     args = parser.parse_args()
     try:
         if args.command == "init":
@@ -89,6 +91,11 @@ def main():
             print(f"Token (shown once; keep it private): {token}")
         elif args.command == "create-project":
             print(f"Project ID: {create_project(args.label, args.owner_user_id)}")
+        elif args.command == "recovery-report":
+            result = triage_memory_writes()
+            print(json.dumps(result, ensure_ascii=False, indent=2))
+            if result["status"] == "unavailable":
+                parser.exit(1)
         else:
             ThreadingHTTPServer(("127.0.0.1", args.port), Handler).serve_forever()
     except (OSError, ValueError, psycopg.Error) as error:
