@@ -63,7 +63,7 @@ def _target(root, name):
         raise ToolFailure("TOOL_EXECUTION_FAILED") from None
 
 
-def _read_windows(path):
+def _read_windows(path, with_identity=False):
     """Open the named entry itself, then reject reparse attributes on its handle."""
     from ctypes import wintypes
 
@@ -138,12 +138,14 @@ def _read_windows(path):
                    (after.volume, after.index_high, after.index_low)
                 or after.attributes & 0x400):
             raise ToolFailure("DOCUMENT_CHANGED", "Verification Failure", 502)
-        return buffer.raw[:total]
+        raw = buffer.raw[:total]
+        identity = (before.volume, before.index_high, before.index_low)
+        return (raw, identity) if with_identity else raw
     finally:
         close(handle)
 
 
-def _read_posix(path):
+def _read_posix(path, with_identity=False):
     if not hasattr(os, "O_NOFOLLOW"):
         raise ToolFailure("TOOL_EXECUTION_FAILED")
     try:
@@ -167,7 +169,9 @@ def _read_posix(path):
                     or before.st_mtime_ns != after.st_mtime_ns
                     or before.st_ino != after.st_ino):
                 raise ToolFailure("DOCUMENT_CHANGED", "Verification Failure", 502)
-            return bytes(chunks)
+            raw = bytes(chunks)
+            identity = (before.st_dev, before.st_ino)
+            return (raw, identity) if with_identity else raw
         finally:
             os.close(descriptor)
     except FileNotFoundError:
@@ -184,9 +188,18 @@ def read_document_bytes(root, name):
     return _read_windows(path) if os.name == "nt" else _read_posix(path)
 
 
-def _worker(root, name, sender):
+def read_document_with_identity(root, name):
+    """Return bytes and identity from the same no-follow file handle."""
+    validate_document_name(name)
+    path = _target(root, name)
+    return (_read_windows(path, with_identity=True) if os.name == "nt"
+            else _read_posix(path, with_identity=True))
+
+
+def _worker(root, name, sender, with_identity=False):
     try:
-        sender.send(("ok", read_document_bytes(root, name)))
+        reader = read_document_with_identity if with_identity else read_document_bytes
+        sender.send(("ok", reader(root, name)))
     except ToolFailure as error:
         sender.send(("error", error.code, error.category, error.http_status))
     except BaseException:
@@ -195,10 +208,12 @@ def _worker(root, name, sender):
         sender.close()
 
 
-def execute_document_read(root, name, timeout=TOOL_TIMEOUT_SECONDS):
+def execute_document_read(root, name, timeout=TOOL_TIMEOUT_SECONDS,
+                          with_identity=False):
     context = multiprocessing.get_context("spawn")
     receiver, sender = context.Pipe(duplex=False)
-    worker = context.Process(target=_worker, args=(str(root), name, sender), daemon=True)
+    worker = context.Process(target=_worker,
+        args=(str(root), name, sender, with_identity), daemon=True)
     try:
         worker.start()
         sender.close()
@@ -242,6 +257,10 @@ def execute_document_read(root, name, timeout=TOOL_TIMEOUT_SECONDS):
     finally:
         receiver.close()
         sender.close()
+
+
+def execute_document_read_with_identity(root, name, timeout=TOOL_TIMEOUT_SECONDS):
+    return execute_document_read(root, name, timeout, with_identity=True)
 
 
 def validate_read_observation(root, name, raw):

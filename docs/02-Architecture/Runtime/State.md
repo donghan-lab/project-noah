@@ -2,13 +2,14 @@
 
 > Status: current implementation contract, 2026-09-29. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
-> execution, M7 restricted document read, and M8 single-document answer.
+> execution, M7 restricted document read, M8 single-document answer, and M9
+> two-document answer.
 > M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
 
-The [M9 two-document contract](../../01-Project/29-Ninth-Vertical-Slice.md)
-below is **proposed and unimplemented**. It does not change the stored M1–M8
-states or claim an M9 recovery mechanism.
+The implemented [M9 two-document contract](../../01-Project/29-Ninth-Vertical-Slice.md)
+does not change the stored Task/Execution state values or add an M9 recovery
+mechanism.
 
 ## Boundaries
 
@@ -146,7 +147,7 @@ observation; `noah.document_answer_evidence` references that execution and
 stores the outcome plus NOAH-verified quote/position array. Both rows and
 terminal Task/Execution states commit together.
 
-## Proposed M9 two-document answer boundary (not implemented)
+## M9 two-document answer boundary
 
 An M9 request names exactly two distinct direct-child `.md` files in one
 authorized project and one question. Authentication, project membership,
@@ -180,11 +181,11 @@ unconfirmed timeout, DB connection/commit-acknowledgement loss, or response
 loss leaves the outcome uncertain: **Unknown Outcome != Failed.** Do not
 infer a terminal state or automatically retry.
 
-The proposed two-source Evidence structure must not reinterpret the current
+The M9-specific two-source Evidence structure does not reinterpret the current
 M7/M8 one-observation-per-Execution tables. No new stored Task, Execution, or
-verification status is proposed. M4 keyed write idempotency remains
+verification status was introduced. M4 keyed write idempotency remains
 `memory.save`-only. M5 read-only Recovery Triage neither inspects nor
-recovers a proposed M9 execution.
+recovers an M9 execution.
 
 ## Unknown outcome and idempotency
 
@@ -221,7 +222,7 @@ database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
 automatically recover M6 `project.documents.list`, M7 Tool, or M8
-executions; the proposed M9 is outside its scope too. Triage can inspect
+executions; M9 is outside its scope too. Triage can inspect
 Task, execution, key mapping, memory reference, and verification metadata
 in a read-only PostgreSQL transaction. It does not
 change those records, create or delete memory, or retry a capability. A

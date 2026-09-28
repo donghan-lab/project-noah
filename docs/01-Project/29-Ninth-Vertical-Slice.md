@@ -1,19 +1,19 @@
-# M9 proposed two-document grounded answering contract
+# M9 explicit two-document grounded answering
 
-> Status: pre-implementation contract, 2026-09-29. No M9 API, migration,
-> execution, or validation result exists yet. The implemented baseline is
-> M1–M8 at `c0c97ffd6322884e4ae3fa18ff8e8c9105b0cde5`. This contract
-> extends the bounded [M8 answer](27-Eighth-Vertical-Slice.md) and the
+> Status: M9 implemented and automatically and manually verified, 2026-09-29; changes are
+> awaiting final review, not committed or pushed. The starting documentation
+> baseline was `8843c6fcd251cb51e07e32c6e3243a049d0158ce`. Executed
+> results are in [M9 Validation](30-Ninth-Slice-Validation.md). M9 extends
+> the bounded [M8 answer](27-Eighth-Vertical-Slice.md) and the
 > [M7 safe read](25-Seventh-Vertical-Slice.md) within the existing
 > [Runtime state boundary](../02-Architecture/Runtime/State.md). Blueprint 10
 > and Accepted DDR-001–006 remain authoritative.
 
-## Scope and proposed API
+## Scope and API
 
-The proposed capability is `project.documents.answer.selected` at
-`POST /projects/<project_id>/documents/answer-selected`. These names are
-**proposals**, to be fixed before implementation; the existing M8 route and
-capability keep their single-document meanings. The request contains exactly
+The implemented capability is `project.documents.answer.selected` at
+`POST /projects/<project_id>/documents/answer-selected`. The existing M8
+route and capability keep their single-document meanings. The request contains exactly
 two distinct, explicitly selected direct-child `.md` names in one project and
 one bounded question:
 
@@ -29,8 +29,8 @@ Reject arrays of any other length, non-string names, duplicate exact names,
 case-only aliases on case-insensitive filesystems, and an invalid question
 before execution reservation. If two distinct names identify the same file,
 reject that pair rather than present one observation as two independent
-sources. Apply the existing M7 exact
-basename validation to **each** name, including its `.md`, direct-child,
+sources. Apply the existing M7 exact basename validation to **each** name,
+including its `.md`, direct-child,
 reserved-name, hidden-name, separator, drive/UNC, and link restrictions. Both
 names resolve only under the same operator-controlled project mapping. The
 client supplies no OS path; the model neither selects nor discovers files.
@@ -74,18 +74,20 @@ must be preserved. A later file change cannot rewrite what was observed.
 ## Combined Context budget
 
 M8's 2,048 UTF-8 byte document cap is **not** a per-document M9 allowance.
-For implementation planning, use a candidate cap of **2,048 UTF-8 bytes for
-the two decoded document bodies combined**, plus a separately checked cap
-for the complete model messages. This is a candidate, not an approved M9
-limit or evidence that the current model handles two-source prompts well.
-The complete budget must include system instructions, question, D1/D2 labels
-and metadata, both bodies, structured-output instructions and an output
-allowance under the current model's `num_ctx=4096` setting. Before fixing a
-number, test synthetic Korean/Korean, English/English, and mixed-language
-documents near the proposed boundary with the actual local Ollama model;
-measure structured-output validity, latency, failures, and available output
-headroom. Lower the cap if needed. A model or `num_ctx` change requires
-renewed validation. Exceeding either finalized cap must produce explicit
+The implemented cap is **2,048 UTF-8 bytes for the two decoded document
+bodies combined** and **3,456 UTF-8 bytes for the system and user message
+contents together**. The model is allotted at most 512 output tokens at
+`num_ctx=4096`. The message-content check includes system instructions, question, D1/D2
+labels and logical names, both bodies, and structured-output instructions;
+the structured-output JSON schema is passed separately and output headroom
+is reserved through `num_predict=512`. The current dedicated local model
+returned valid source-aware output for synthetic Korean/Korean,
+English/English, and mixed-language pairs of 1,809–1,830 combined bytes and
+for an English pair of exactly 2,048 bytes (3,153 full-message bytes). This
+is a measured starting limit for the current model/configuration, not a
+permanent guarantee for other models or arbitrary document content. A model
+or `num_ctx` change requires renewed validation. Exceeding either cap produces
+explicit
 `CONTEXT_TOO_LARGE`-family failure **before** model transmission. Never
 truncate, silently omit one source, or describe a fragment as both full
 documents.
@@ -170,19 +172,29 @@ Failed**; do not infer a terminal transition or silently rerun. M4 keyed
 idempotency applies to `memory.save`, not this read. M5 Recovery Triage still
 inspects `memory.save` only and does not recover M9.
 
-## Minimal append-only Evidence proposal
+The implemented failure codes include `INVALID_DOCUMENT_COUNT`,
+`DUPLICATE_DOCUMENT_NAME`, `DOCUMENT_ALIAS`, `CONTEXT_TOO_LARGE`,
+`MODEL_OUTPUT_INVALID`, `INVALID_SOURCE_ID`, `QUOTE_LIMIT_EXCEEDED`,
+`SOURCE_QUOTE_MISMATCH`, model unavailable/timeout, DB unavailable, and
+`TOOL_OUTCOME_UNKNOWN`. A D1/D2 identifier or read/security failure prefixes
+the underlying safe-read code with `D1_` or `D2_`, preserving which required
+source failed. Revoked project access returns the existing
+`PROJECT_NOT_FOUND` denial without releasing excerpts.
+
+## Minimal append-only Evidence
 
 Keep existing M7/M8 evidence tables and their **one observation per
-Execution** meaning unchanged. A proposed M9-specific structure is:
+Execution** meaning unchanged. M9 uses three dedicated tables:
 
 | Record | Minimal fields and relation |
 | --- | --- |
-| Answer parent | `execution_id` unique FK to M9 Execution; `project_id`; validated `outcome`; recorded time. |
-| Source observation child | `(execution_id, source_id)` unique with `source_id` constrained to `D1`/`D2`; ordinal 1/2; logical `root_id`, exact `document_name`, original byte length and SHA-256, `observed_at`, encoding, BOM flag. Exactly two source rows are required for success. |
-| Verified quote child | Parent Execution and source-child reference; ordinal 1–3; exact short quote; NOAH-computed Unicode `[start,end)`; source hash/reference. Zero rows only for `insufficient` or `out_of_scope`. |
+| `noah.selected_document_answer_evidence` | `execution_id` PK/FK to M9 Execution; `project_id`; validated `outcome`; created time. |
+| `noah.selected_document_source_evidence` | `(execution_id, source_id)` PK with `source_id` constrained to `D1`/`D2`; ordinal 1/2; logical `root_id`, exact `document_name`, original byte length and SHA-256, `observed_at`, encoding, BOM flag. The service inserts exactly two rows for success. |
+| `noah.selected_document_quote_evidence` | `(execution_id, quote_ordinal)` PK, FK to the specific source child; ordinal 1–3; exact short quote; NOAH-computed Unicode `[start,end)`. Zero rows only for `insufficient` or `out_of_scope`. |
 
-The names and SQL constraints are implementation decisions. Preserve source
-ordering and prevent mismatched project or source links. Persist both source
+The schema preserves source ordering and prevents a quote from referring to
+a missing source; the service enforces two sources and the exact-match check.
+Persist both source
 observations, quote evidence, Task `completed/passed`, and Execution
 `succeeded`/verification time in **one final transaction**. Full document
 bodies, model prompts, machine absolute paths, tokens, and credentials do not
@@ -190,9 +202,9 @@ belong in Evidence or logs. The source hashes attest observed bytes but
 cannot reconstruct a changed source without separately retained bytes. No
 general Artifact Store or generic provenance platform is implied.
 
-## Runtime and test contract
+## Runtime and verification
 
-The proposed transition is preflight (no Task on rejection), durable
+The implemented transition is preflight (no Task on rejection), durable
 `running/pending` Task and `running` Execution reservation, D1 observation,
 D2 observation, combined Context construction, one bounded local model call,
 source-aware quote verification, final permission check, and atomic Evidence
@@ -200,7 +212,7 @@ plus terminal success. A verified `insufficient` or `out_of_scope` is a
 successful **contract execution**, not proof of an answer. A definite
 post-reservation failure may transition to `failed/failed` Task and `failed`
 Execution; uncertain work remains unresolved for later inspection. No new DB
-Task, Execution, or verification state value is proposed.
+Task, Execution, or verification state value was introduced.
 
 Implementation tests must cover both-source support, only D1, only D2,
 partial evidence from both, cross-source conflict, no verified quote, and
@@ -216,23 +228,42 @@ storage uncertainty, one Task/Execution, source/quote Evidence linkage and
 atomicity. Assert zero extra Tool calls and zero unverified citation. Run
 M1–M8 regressions against Docker Compose PostgreSQL 17 with isolated
 synthetic users/projects/roots and preserve existing data and volume. Record
-actual results in a separate M9 Validation document **after** execution;
-none is claimed here.
+the executed results in [M9 Validation](30-Ninth-Slice-Validation.md).
 
-## Decisions still required before implementation
+## Implementation decisions and remaining boundary
 
-1. Fix the endpoint/capability names, HTTP failure codes, the exact
-   two-source response fields, and the same-file alias detection method
-   without changing M8's route.
-2. Measure the final combined body and full-message budgets, including model
-   output headroom, with the actual local model and `num_ctx=4096`.
-3. Choose minimal M9 table names and database constraints for exactly two
-   ordered source observations and source-linked quotes. Preserve the M7/M8
-   table meanings and existing rows.
-4. Specify the observable behavior for a document change between sequential
-   reads and final disclosure, without claiming an atomic two-file snapshot.
+The M9 safe reader returns original bytes and file identity from the **same
+no-follow handle**: Windows volume serial plus file index, or POSIX device
+plus inode. NOAH rejects missing identity and equal D1/D2 identities,
+including hard-link aliases. Exact and case-folded duplicate names are
+rejected before reservation. M7 independently reopens each path to validate
+the returned bytes. If the source changes during that check, the request
+fails; if it changes after the verified observation, the recorded timestamp
+and original-byte hash still describe only what NOAH observed. Sequential
+reads are not an atomic two-file snapshot. As in M7/M8, resistance to a
+malicious process running as the same Windows user and racing filesystem
+changes is outside this Slice's guarantee.
 
-These are local implementation decisions within DDR-001, DDR-002, DDR-004,
-and DDR-006. The Memory/Knowledge and Identity boundaries of DDR-003 and
-DDR-005 remain unchanged. No new long-term DDR is required by this proposed
-slice unless implementation reveals a conflict with those boundaries.
+The API response carries outcome, NOAH-assembled answer, D1/D2 metadata,
+source-qualified short quotes and positions, Task ID, and Execution ID. It
+does not return complete document bodies or absolute paths. Windows
+PowerShell 5.1 callers must use `application/json; charset=utf-8` for Korean
+questions; an existing project membership and operator mapping are required:
+
+```powershell
+$body = @{ document_names = @('alpha.md', 'beta.md'); question = '두 문서에 기록된 사실은?' } | ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/projects/$env:NOAH_PROJECT_ID/documents/answer-selected" -Headers @{ Authorization = "Bearer $env:NOAH_API_TOKEN" } -ContentType 'application/json; charset=utf-8' -Body $body
+```
+
+For Windows PowerShell 5.1 manual DB checks, pass multiline Python through
+stdin, for example `$SnapshotCode | & $Python -` (also for verification and
+cleanup blocks). Passing the multiline variable with
+`& $Python -c $SnapshotCode` broke quoted SQL during manual verification. When checking
+whether this M9 Execution has legacy Evidence, query each legacy table by
+`execution_id`, not `project_id`: `noah.document_answer_evidence` has no
+`project_id` column. The full manual result and procedure corrections are
+recorded in [M9 Validation](30-Ninth-Slice-Validation.md).
+
+These implementation choices stay within DDR-001, DDR-002, DDR-004, and
+DDR-006. The Memory/Knowledge and Identity boundaries of DDR-003 and DDR-005
+remain unchanged. No new long-term DDR was needed for this Slice.
