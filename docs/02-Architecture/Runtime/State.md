@@ -2,8 +2,9 @@
 
 > Status: current implementation contract, 2026-09-28. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
-> execution, and M7 restricted document read. This is not the complete future
-> Task or Runtime state machine.
+> execution, and M7 restricted document read. The M8 section below is a
+> pre-implementation contract, not an implemented state transition. This is
+> not the complete future Task or Runtime state machine.
 
 ## Boundaries
 
@@ -94,6 +95,49 @@ contract. M4 Idempotency-Key reservation applies to `memory.save`, not to an
 M6 or M7 read. A fresh read is a new observation, not a replay of
 earlier evidence.
 
+## Proposed M8 single-document answer boundary (not implemented)
+
+The [M8 scope contract](../../01-Project/27-Eighth-Vertical-Slice.md) combines
+one M7-style document observation with one bounded local model call. It does
+not change the implemented M6/M7 routes or the stored status values. M8 must
+not call the public M7 endpoint as a substitute for its own execution, since
+that would create a separate completed Task and Execution.
+
+1. Authenticate, check project read membership, validate the exact document
+   basename and one bounded question, and confirm the operator mapping before
+   reservation. A rejection here creates no M8 Task or Execution. Recheck
+   token and membership before durably reserving one `running/pending` Task
+   and one `running` M8 Execution. Reservation precedes the file-read worker.
+2. Recheck permission immediately before the M7-style open. Verify the
+   bounded original bytes, strict UTF-8 text, and source hash. A completed
+   document observation is not yet an answered Task. Check the M8 Context cap
+   without truncation, confirm permission again immediately before sending
+   the verified text to the loopback-only local model, and pass no Tool-call
+   authority, credential, or OS path.
+3. Validate the model's limited outcome and up to three exact quote proposals
+   against that same decoded text. NOAH calculates the Unicode character
+   `[start, end)` positions; the model does not supply them. Recheck permission
+   before final commit. A valid `insufficient` or `out_of_scope`
+   response can have no quotes; `passed` means the bounded response contract
+   was followed, not that absence of an answer in the document was proven.
+4. Commit the source observation evidence, verified answer evidence, Task
+   `completed/passed`, and Execution `succeeded` with verification time in one
+   final transaction. Recheck permission immediately before the HTTP response;
+   loss of access after commit withholds excerpts despite the durable success.
+   A definite post-reservation
+   failure may set Task `failed/failed` and Execution `failed` together with a
+   safe code, if PostgreSQL is available. Do not expose a model answer or
+   document excerpt when permission is lost before the response.
+
+Model unavailability, timeout, invalid structured output, quote mismatch,
+Context overrun, document-read failure, and storage failure remain distinct
+failure reasons. A timeout without proof that execution cannot still finish,
+lost DB connectivity or commit acknowledgement, and a lost HTTP response are
+**unknown outcomes**, not evidence for `running -> failed` or an automatic
+retry. The actual evidence-table layout and model Context limit are to be
+settled under the M8 scope contract before implementation. M4's keyed write
+mapping does not apply to M8.
+
 ## Unknown outcome and idempotency
 
 **Unknown Outcome != Failed.** `running` means no final durable result has
@@ -102,7 +146,7 @@ stopped, or that the side effect did not occur. Age and `updated_at` can
 prioritize inspection but cannot establish success, failure, or permission to
 retry. Client response loss also does not imply storage failure.
 
-For M6 and M7 Tool attempts, an execution timeout without proof that
+For implemented M6 and M7 Tool attempts, an execution timeout without proof that
 the worker stopped, lost database connectivity or commit acknowledgement,
 and a lost HTTP response do not establish failure or success. Retain the
 durable state that can be proven and report uncertainty; do not infer a
@@ -128,7 +172,7 @@ a new database status. `interrupted` and `recovery_pending` are not current
 database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
-automatically recover M6 `project.documents.list` or M7 Tool
+automatically recover M6 `project.documents.list`, M7 Tool, or future M8
 executions. Triage can inspect Task, execution, key mapping, memory reference,
 and verification metadata in a read-only PostgreSQL transaction. It does not
 change those records, create or delete memory, or retry a capability. A
