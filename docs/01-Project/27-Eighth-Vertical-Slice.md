@@ -1,7 +1,8 @@
-# M8 pre-implementation contract: grounded single-document question answering
+# M8 grounded single-document question answering
 
-> Status: scope and safety contract only, 2026-09-28. M8 API, code, migration,
-> tests, and validation do not exist yet. The implemented baseline is M1–M7,
+> Status: M8 contract and implementation record, 2026-09-29. The implemented
+> baseline is M1–M8; executed checks are recorded separately in
+> [M8 Validation](28-Eighth-Slice-Validation.md). M1–M7 remain the baseline,
 > especially [M3 quoted Memory Query](17-Third-Vertical-Slice.md),
 > [M6 document listing](23-Sixth-Vertical-Slice.md),
 > [M7 verified document read](25-Seventh-Vertical-Slice.md), and
@@ -66,24 +67,22 @@ Use the exact validated M7 decoded content. Accept strict UTF-8 with M7's
 optional leading BOM treatment; preserve all remaining Unicode characters and
 line endings. Do not normalize CRLF to LF, change spaces, or silently shorten
 the document. Represent the document as an explicitly marked data field in a
-message separate from NOAH's instructions, with its logical identifier and
-source observation reference. A role label or instruction embedded within
+message separate from NOAH's instructions, with its logical identifier. The
+source observation is linked to the M8 Execution in PostgreSQL, not supplied
+as model authority. A role label or instruction embedded within
 that field is still untrusted text. Do not include unrelated Memory, project
 files, conversation history, credentials, or the absolute document root.
 
 M7 permits up to **65,536 original file bytes**. This is not the M8 model
-Context budget. An initial M8 candidate is **2,048 UTF-8 bytes of the
-decoded document text after M7's optional BOM removal**, not 2,048 characters
-and not an established permanent limit. The implementation must test
-synthetic Korean and English inputs, the bounded question, instructions, and
-output allowance with the actual local model and current `num_ctx=4096`, then
-fix and document a verified M8 cap before sending real document text. If the
-adapter cannot reliably establish that the complete selected text fits, it
-must lower the cap or fail closed. An over-cap document produces an explicit
+Context budget. M8 uses **2,048 UTF-8 bytes of the decoded document text
+after M7's optional BOM removal**, not 2,048 characters or a permanent
+model-independent guarantee. This cap was selected after synthetic Korean and
+English checks with the current local model at `num_ctx=4096`. A changed model
+or context configuration requires renewed validation. An over-cap document produces an explicit
 `CONTEXT_TOO_LARGE`-family failure without calling the model. Do not silently
 truncate, chunk, or answer for a fragment as though it were the whole file.
-The request contains one bounded, nonempty question; the exact API length
-bound may follow M3's 1–500-character convention during implementation.
+The request contains one nonempty question bounded to 300 Unicode characters
+and 512 UTF-8 bytes.
 
 ## Model output and quote verification
 
@@ -163,17 +162,19 @@ absolute OS path, API token, DB credential, or model prompt. A source hash
 identifies the observed bytes; it cannot reconstruct them after the source
 changes unless those bytes are retained elsewhere.
 
-Two evidence-link designs remain for the implementation review:
+The implementation uses the first evidence-link design:
 
 | Option | Benefit | Cost / condition |
 | --- | --- | --- |
 | Reuse `noah.document_read_evidence` for the M8 Execution, plus one small M8 answer-evidence row referencing its `execution_id` | One authoritative observation shape and direct reuse of M7 metadata; both rows can commit with the M8 terminal state | Confirm that the existing table and readers permit a `project.documents.answer` Execution, and define the shared observation semantics explicitly |
 | Add the minimum observation fields to an M8-specific append-only evidence row | M8 evidence is self-contained and does not broaden the M7 table's use | Duplicates M7 metadata and verification rules; migration and audit queries must keep them aligned |
 
-Choose one before writing SQL; do not create a general Artifact Store. The
-answer evidence always records the verified quotes and positions, whether
-the observation is referenced or stored alongside them. The document body is
-not copied into either evidence record.
+`noah.document_read_evidence` records the M8 execution's M7-style observation.
+`noah.document_answer_evidence` references the same `execution_id` and stores
+the outcome and verified quote/position array. Its project, logical root,
+document identifier, source SHA-256, and observation time are obtained through
+that required source row. Both evidence rows and terminal Task/Execution states
+commit together. The body is not copied into either record.
 
 ## Failure and unknown-outcome rules
 
@@ -204,13 +205,32 @@ tokens, DB passwords, and system prompt text. A successful authorized API
 response may contain only the chosen short verified quotations, not the full
 document body.
 
-## Implementation-stage decisions and verification
+## Implementation decisions and verification
 
-Before code, select the evidence-link option and the M8 capability/API name.
-Confirm the production Context cap and bounded question length with the
-actual local model using Korean/English synthetic documents. Define how the
-model timeout is conclusively stopped or classified unknown. Keep the
-current M7 file/path/UTF-8 contract intact.
+The selected capability is `project.documents.answer` at
+`POST /projects/<project_id>/documents/answer`, with JSON `document_name` and
+`question`. The M7 65,536-byte safe-read limit remains independent of M8's
+2,048 UTF-8 byte model-document cap. A question is limited to 300 Unicode
+characters and 512 UTF-8 bytes; the combined system/user messages are limited
+to 3,456 UTF-8 bytes without truncation. Korean and English synthetic inputs
+near 1.8–1.9 KiB were checked with the current dedicated local model and
+`num_ctx=4096`; the model configuration remains changeable, not permanent.
+The synchronous model adapter's timeout ends NOAH's model attempt before any
+answer commit. A worker whose termination cannot be proven and uncertain DB
+commits remain unknown outcomes. The M7 file/path/UTF-8 contract is unchanged.
+
+After an operator has registered a readable project root and the M8 schema is
+initialized, Windows PowerShell can send a request using existing user and
+project credentials stored locally in environment variables:
+
+```powershell
+$body = @{ document_name = "guide.md"; question = "문서에 나온 나무는?" } | ConvertTo-Json -Compress
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/projects/$env:NOAH_PROJECT_ID/documents/answer" -Headers @{ Authorization = "Bearer $env:NOAH_API_TOKEN" } -ContentType "application/json; charset=utf-8" -Body $body
+```
+
+The successful response includes `outcome`, NOAH-assembled `answer`, verified
+quote/evidence positions, source byte length/hash, and Task/Execution IDs.
+It does not return the entire document or the machine's absolute root path.
 
 Use separate synthetic user, project, membership, and document root on Docker
 Compose PostgreSQL 17. Test every outcome, duplicate and fabricated quotes,
@@ -222,5 +242,4 @@ secrets or system instructions, or invent citations. Assert zero additional
 Tool calls, zero NOAH credential/context leakage, and no unverified citation
 in the response. Run M1–M7 regressions and clean only test-owned records and
 files; preserve existing users, memories, Tasks, Executions, and Docker
-volumes. Record executed results separately from this pre-implementation
-contract.
+volumes. Executed results are in [M8 Validation](28-Eighth-Slice-Validation.md).

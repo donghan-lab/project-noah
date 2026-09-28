@@ -1,14 +1,12 @@
 # NOAH 개발 현황
 
-> 기준일: 2026-09-28 (Asia/Seoul)
+> 기준일: 2026-09-29 (Asia/Seoul)
 > 성격: 구현·검증 진행 상황의 요약. 기존 Blueprint와 Accepted DDR을 대체하거나 변경하지 않는다.
 > 첫 Slice 기준 커밋: `061dbea` — 인증된 PostgreSQL 메모 저장 구현. 이후 반영 상태는 Git 기록을 따른다.
 
 ## 현재 마일스톤
 
-**M7 — 제한된 프로젝트 문서 읽기:** 인증된 프로젝트 멤버가 운영자 등록 루트의 직접 하위 단일 `.md` 파일을 최대 65,536 원본 바이트로 읽고, 검증된 본문·출처를 반환한다. Docker Compose PostgreSQL 17의 합성 프로젝트에서 M1–M6 회귀 테스트와 함께 검증했다. 실제 사용자 프로젝트는 아직 등록하지 않았다. 저장소 반영 상태는 Git 기록을 따른다.
-
-**M8은 구현 전 문서 계약 단계:** [단일 문서 근거 인용형 질문 응답 범위](27-Eighth-Vertical-Slice.md)를 정의했다. 현재 M8 API·코드·DB 마이그레이션·테스트 결과는 없다. M7까지의 구현 현황과 아래 검증 수치는 그대로 유지한다.
+**M8 — 단일 문서 근거 인용형 질문 응답:** M7 방식으로 검증한 승인 프로젝트의 `.md` 한 건을 제한된 로컬 모델 Context로 사용한다. 모델의 구조화된 인용 후보를 NOAH가 원문과 대조하고 답변을 조립한다. M8 변경은 현재 작업 트리에 있으며 아직 커밋·Push하지 않았다. 실제 사용자 문서는 모델에 전달하지 않았고, 합성 프로젝트로 Compose PostgreSQL 17에서 검증했다. 범위와 제한은 [M8 계약](27-Eighth-Vertical-Slice.md), 실행 결과는 [M8 검증 기록](28-Eighth-Slice-Validation.md)을 따른다.
 
 ## 완료된 기능과 구현 범위
 
@@ -23,9 +21,10 @@
 - `POST /memories/query`는 토큰 인증 후 로컬 Ollama가 제안한 읽기 의도와 질문의 단어를 검증한다. 기존 개인·프로젝트 조회 권한 필터를 공유하는 매개변수화 검색으로 최대 5건을 조회하고, 제한된 본문을 모델에 전달한다. 답변에는 실제 조회 결과의 ID와 원문이 일치하는 발췌만 사용한다. 빈 결과·근거 부족·검색 한도와 DB/모델 오류를 구분한다.
 - `POST /projects/<project_id>/documents/query`는 모델이 제안한 제한된 읽기 의도를 NOAH가 재검증하고, 실행 직전 프로젝트 소속을 재확인한다. 운영자만 관리하는 Git 제외 로컬 mapping의 문서 루트에서 직접 하위 일반 `.md` 파일명 최대 50개를 읽어 검증한다. Task·Execution 및 별도 Tool Evidence에 결과를 연결하고 본문이나 절대경로를 모델·API에 보내지 않는다.
 - `POST /projects/<project_id>/documents/read`는 정확한 `.md` 파일명 하나를 받아 권한을 재검사하고, Windows에서는 reparse point를 따라가지 않는 파일 핸들로 최대 65,536 원본 바이트를 읽는다. strict UTF-8/BOM을 검증하고 독립 재조회와 SHA-256을 대조한 뒤 별도 Document Evidence와 Task·Execution을 함께 확정한다. 본문은 API의 인증된 요청자에게만 반환하며 LLM에는 전달하지 않는다.
+- `POST /projects/<project_id>/documents/answer`는 인증·프로젝트 읽기 권한·단일 문서명·질문을 검증한다. M7 내부 safe-read와 원본 hash 검증을 재사용하고 2,048 UTF-8 byte 이하의 본문을 별도 로컬 모델에 untrusted data로 전달한다. 모델은 outcome과 최대 3개 exact quote만 제안하며, NOAH가 240 Unicode 문자 이하 인용을 원문에 대조하고 첫 `[start,end)` 위치를 계산한다. 하나의 M8 Task/Execution에 문서 관찰 Evidence와 답변 Evidence를 원자적으로 연결한다. 추가 Tool과 자유 형식 모델 답변은 사용하지 않는다.
 - 기존 `compose/.env`와 Docker Compose PostgreSQL 설정을 사용한다. 로컬 운영 명령으로 스키마 초기화, 사용자 토큰 발급 및 프로젝트 생성을 지원한다.
 
-구현 위치: [`noah/`](../../noah/), [`database/001_first_slice.sql`](../../database/001_first_slice.sql), [`database/002_memory_write_idempotency.sql`](../../database/002_memory_write_idempotency.sql), [`database/003_document_tool_evidence.sql`](../../database/003_document_tool_evidence.sql), [`database/004_document_read_evidence.sql`](../../database/004_document_read_evidence.sql), [`tests/`](../../tests/). 실행 절차: [First vertical slice](13-First-Vertical-Slice.md), [Second vertical slice](15-Second-Vertical-Slice.md), [Third vertical slice](17-Third-Vertical-Slice.md), [Fourth vertical slice](19-Fourth-Vertical-Slice.md), [M5 read-only triage](21-Fifth-Vertical-Slice.md), [M6 Tool Execution](23-Sixth-Vertical-Slice.md), [M7 Document Read](25-Seventh-Vertical-Slice.md). M2·M3·M5에는 DB 스키마 변경이 없었고, M4·M6·M7는 각각 기존 데이터를 유지하는 추가 테이블을 마이그레이션했다.
+구현 위치: [`noah/`](../../noah/), [`database/001_first_slice.sql`](../../database/001_first_slice.sql), [`database/002_memory_write_idempotency.sql`](../../database/002_memory_write_idempotency.sql), [`database/003_document_tool_evidence.sql`](../../database/003_document_tool_evidence.sql), [`database/004_document_read_evidence.sql`](../../database/004_document_read_evidence.sql), [`database/005_document_answer_evidence.sql`](../../database/005_document_answer_evidence.sql), [`tests/`](../../tests/). 실행 절차: [First vertical slice](13-First-Vertical-Slice.md), [Second vertical slice](15-Second-Vertical-Slice.md), [Third vertical slice](17-Third-Vertical-Slice.md), [Fourth vertical slice](19-Fourth-Vertical-Slice.md), [M5 read-only triage](21-Fifth-Vertical-Slice.md), [M6 Tool Execution](23-Sixth-Vertical-Slice.md), [M7 Document Read](25-Seventh-Vertical-Slice.md), [M8 Document Answer](27-Eighth-Vertical-Slice.md). M2·M3·M5에는 DB 스키마 변경이 없었고, M4·M6·M7·M8은 기존 데이터를 유지하는 추가 테이블을 마이그레이션했다.
 
 ## 테스트 및 검증
 
@@ -39,8 +38,9 @@
 | 기존 Docker Compose PostgreSQL 17 — M5 | 2026-09-28 | M5 전용 2개 통과; 전체 32개 중 31개 통과·1개 건너뜀, 실패·오류 0개 | 합성 Task·Execution·Memory·매핑 분류와 진단 전후 불변성, M1–M4 회귀. 건너뜀은 명시적 실제 Ollama 호출 테스트 |
 | 기존 Docker Compose PostgreSQL 17.10 + 로컬 Ollama — M6 | 2026-09-28 | 최초 M6 16개·전체 48개 통과; PowerShell 5.1 호환성 보완 후 M6 18개·전체 50개 통과, 실패·오류·건너뜀 0개 | 합성 프로젝트·임시 문서 루트의 인증·권한 재검사·경로 필터·근거·실패 계약, UTF-8 BOM 유무 및 잘못된 mapping 처리, M1–M5 회귀 |
 | 기존 Docker Compose PostgreSQL 17 + 로컬 Ollama — M7 | 2026-09-28 | M7 전용 13개·전체 63개 통과, 실패·오류·건너뜀 0개 | 합성 사용자·프로젝트·문서 루트의 제한된 본문 읽기, Windows 실제 junction 차단, 원본 바이트 근거, Task/Execution/Evidence, M1–M6 회귀 및 실제 합성 Ollama 호출 |
+| 기존 Docker Compose PostgreSQL 17 + 로컬 Ollama — M8 | 2026-09-29 | M1–M8 전체 79개 통과, 실패·오류·건너뜀 0개 | 합성 프로젝트·문서의 한정된 모델 Context, exact quote 검증, 권한 재검사, 원자적 Evidence, 실제 합성 Ollama 호출 및 M1–M7 회귀 |
 
-M1 Compose 테스트는 실제 외래 키 위반에 따른 메모 쓰기 롤백과 실패 Task·실행 기록을 확인했다. M1의 재시작 검증은 HTTP 서버 인스턴스를 **같은 Python 프로세스에서** 종료·재생성한 것이고, M4는 별도 테스트에서 NOAH Python 서버 **프로세스 자체를** 종료·재시작한 뒤 동일 키 재요청을 확인했다. 자동 테스트용 행은 정리했다. 초기 7개 테이블에 M4 `noah.memory_write_requests`, M6 `noah.document_tool_evidence`, M7 `noah.document_read_evidence`가 추가되어, **현재 `noah` 스키마는 10개 테이블**이다. M6·M7 합성 검증 정리 후 두 Evidence 테이블의 행은 각각 0건이지만 테이블은 유지된다. 기존 Compose 컨테이너와 named volume은 테스트 전후 동일한 것으로 확인했다.
+M1 Compose 테스트는 실제 외래 키 위반에 따른 메모 쓰기 롤백과 실패 Task·실행 기록을 확인했다. M1의 재시작 검증은 HTTP 서버 인스턴스를 **같은 Python 프로세스에서** 종료·재생성한 것이고, M4는 별도 테스트에서 NOAH Python 서버 **프로세스 자체를** 종료·재시작한 뒤 동일 키 재요청을 확인했다. 자동 테스트용 행은 정리했다. 초기 7개 테이블에 M4 `noah.memory_write_requests`, M6 `noah.document_tool_evidence`, M7 `noah.document_read_evidence`, M8 `noah.document_answer_evidence`가 추가되어, **현재 `noah` 스키마는 11개 테이블**이다. M6–M8 합성 검증 정리 후 세 Evidence 테이블의 행은 각각 0건이지만 테이블은 유지된다. 기존 Compose 컨테이너와 named volume은 테스트 전후 동일한 것으로 확인했다.
 
 M1 상세 근거와 실패 주입 기록: [First Slice Validation Record](14-First-Slice-Validation.md). M2 검증 및 기존 사용자 데이터 보존 결과: [Second Slice Validation Record](16-Second-Slice-Validation.md). M3 모델 비교, 안전한 로컬 리스너, 실제 Compose·Ollama 검증: [Third Slice Validation Record](18-Third-Slice-Validation.md). M4의 마이그레이션, 동시 요청, 실제 서버 프로세스 재시작과 M1–M3 회귀 검증: [Fourth Slice Validation Record](20-Fourth-Slice-Validation.md).
 
@@ -60,6 +60,10 @@ M7 자동 합성 검증은 인증·권한 재검사·문서명과 파일 유형�
 
 M7의 **별도 사용자 수동 검증**에서 실제 서버/API의 단일 `.md` 읽기는 본문·UTF-8·원본 byte length·SHA-256 대조를 통과했고 절대경로를 노출하지 않았다. 성공 요청에는 Task·Execution·Document Read Evidence가 각각 정확히 1건 연결됐으며 Evidence에는 본문 전체나 절대경로가 없었다. 기존 Memory와 M6 Evidence는 변하지 않았다. `../<document>` 요청은 HTTP 400 `INVALID_DOCUMENT_IDENTIFIER`와 null Task/Execution ID로 거부됐고 전후 DB snapshot이 같았다. 합성 프로젝트·membership·M7 실행 기록·문서 루트·local mapping만 정리한 뒤 기존 행 수·ID와 토큰/메모/M4 지문이 사전 상태로 복원됐다. Windows PowerShell 5.1에서 실패 응답의 `GetResponseStream()`은 빈 본문을 주었지만 `$_.ErrorDetails.Message | ConvertFrom-Json`으로 오류 코드를 확인했다. 자동 테스트와 수동 검증의 상세 결과는 [M7 검증 기록](26-Seventh-Slice-Validation.md)에 구분해 남겼다.
 
+M8은 합성 한국어·영어 문서로 현재 로컬 모델의 Context 응답을 확인하고, Docker Compose PostgreSQL 17에서 단일 문서 질문·인용 검증·권한 회수·원자적 기록 및 전체 M1–M7 회귀를 검증했다. 기존 사용자 1·토큰 1·메모 2·Task 2·Execution 3·M4 매핑 1을 유지하고, 합성 project/membership 및 M6–M8 Evidence는 정리 후 각각 0건이다. 실제 사용자 문서에 대한 수동 M8 검증은 아직 수행하지 않았다. 세부 결과와 제한은 [M8 검증 기록](28-Eighth-Slice-Validation.md)에 있다.
+
+M8의 **별도 사용자 수동 API 검증**에서는 공개 합성 `.md`에 대한 성공 요청 1회가 HTTP 200, `succeeded`, `project.documents.answer`, `supported`, `grounded=true`를 반환했다. `NOAH의 테스트 동물은 수달이다.` 인용은 원문과 정확히 일치했고 NOAH가 계산한 `[start,end)` 위치도 일치했다. Task·Execution·문서 관찰 Evidence·답변 Evidence가 연결됐으며 추가 `project.*` Execution이나 M6 Tool Evidence는 없었다. `../document`는 HTTP 400 `INVALID_DOCUMENT_IDENTIFIER`와 null Task/Execution으로 거부됐고 전후 DB snapshot이 같았다. 합성 행·mapping·임시 문서 root를 정리한 뒤 `MappingExists=False`, `RootExists=False`, `DbRestored=True`를 확인했다. PowerShell 5.1에서 단일 Evidence 객체에 대한 파이프라인 `.Count`는 false negative였으므로 수동 안내는 `@(...)` 배열 감싸기로 바로잡았다. 자동 검증과 구분한 근거는 [M8 검증 기록](28-Eighth-Slice-Validation.md)에 있다.
+
 ## 알려진 제한 사항
 
 - 메모 쓰기 멱등성은 새 요청의 선택적 키에만 적용된다. 키 없는 과거·현재 쓰기는 재시도로 중복될 수 있고, 확정 실패를 같은 키로 자동 재실행하지 않는다. 커밋 결과가 불확실할 때는 같은 키로 내구 상태를 재조회할 수 있으나 자동 복구는 없다.
@@ -68,8 +72,9 @@ M7의 **별도 사용자 수동 검증**에서 실제 서버/API의 단일 `.md`
 - M6의 프로젝트→문서 루트 mapping은 운영자 로컬 설정에서만 제공한다. 현재 실제 프로젝트와 membership이 각각 0건이므로 운영자가 범위를 등록하기 전에는 실제 사용자 대상 Tool 조회를 할 수 없다. M6 결과는 조회 시점의 파일명 관찰이며 파일 내용·후속 변경을 보증하지 않는다.
 - M6 경로 보장은 사용자·모델·원격 입력을 통한 탈출에 초점을 둔다. 동일 Windows 사용자 권한의 악성 로컬 프로세스가 검사와 열거 사이에 링크를 바꾸는 공격까지 보장하지 않는다. Windows 테스트 계정에서 실제 symlink 생성은 허용되지 않아 해당 제외 분기는 합성 reparse 속성으로 시험했다.
 - M7은 파일 본문을 검증된 관찰로 반환하지만 요약하거나 Knowledge로 적재하지 않는다. 실제 symlink 생성이 허용되지 않아 합성 reparse 분기와 실제 junction 거부를 검증했다. 동일 Windows 사용자의 악성 로컬 경로 교체 경쟁은 보장 범위 밖이다.
+- M8은 선택된 단일 문서의 실제 인용과 위치만 검증한다. 인용의 현실 세계 사실성이나 질문과의 완전한 의미적 적합성은 증명하지 않는다. 2,048 UTF-8 byte Context 초과 문서는 실패하며 자동 분할·요약하지 않는다. M5 Recovery Triage는 M8 실행을 복구하지 않는다.
 - HTTP API는 로컬호스트에만 바인딩한다. 원격 배포용 TLS, 운영 인증·권한 관리, 속도 제한은 범위 밖이다.
-- `noah init`은 첫 스키마와 M4·M6·M7의 추가 테이블 마이그레이션을 차례로 적용한다. 일반화된 마이그레이션 버전 관리·롤백 체계는 아직 없다.
+- `noah init`은 첫 스키마와 M4·M6·M7·M8의 추가 테이블 마이그레이션을 차례로 적용한다. 일반화된 마이그레이션 버전 관리·롤백 체계는 아직 없다.
 - `noah.users`는 인증된 사용자 Principal이며, DDR-005의 보호된 NOAH Identity Core 구현이 아니다.
 - 목록 커서는 페이지 위치를 표현하며 여러 요청에 걸친 고정 DB 스냅샷은 제공하지 않는다. 페이지 이동 중 메모 또는 프로젝트 소속이 바뀌면 이후 결과에 반영된다.
 - M1 개별 조회 `GET /memories/<id>`, M2 목록 조회 `GET /memories`, M3 자연어 조회 `POST /memories/query`는 Task·실행 기록을 새로 생성하지 않는다. M6·M7 읽기 전용 Tool은 실행 시작 전 Task·Execution을 생성하고 검증된 Evidence를 연결한다.
@@ -83,7 +88,7 @@ M7의 **별도 사용자 수동 검증**에서 실제 서버/API의 단일 `.md`
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. LLM은 읽기 의도 제안과 근거 발췌에만 사용한다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-다음 M8 **후보**는 승인된 단일 `.md` 문서에 대한 읽기 전용 **근거 인용형 질문 응답**이다. [M8 구현 전 계약](27-Eighth-Vertical-Slice.md)은 모델이 최대 3개의 정확한 원문 인용만 제안하고 NOAH가 이를 검증해 응답을 조립하도록 제한한다. 자유 형식 문서 요약, 여러 문서 검색 및 추가 Tool 실행은 M8 범위에서 제외한다. 초기 2,048 UTF-8 byte Context 후보는 실제 로컬 모델·`num_ctx=4096` 합성 검증 뒤 확정해야 한다. M5 후속 안전 복구 계약, M6/M7 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M8의 자동 및 공개 합성 자료 수동 검증을 마쳤으며 다음 단계는 변경 사항 최종 검토와 사용자 승인 후 커밋·Push다. 다음 M9 후보는 한 문서의 제한된 요약 계약 또는 읽기 전용 Tool 실행의 복구 진단 확대다. 어느 쪽도 아직 확정하지 않았다. M5 후속 안전 복구 계약, M6–M8 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 

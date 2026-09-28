@@ -1,9 +1,9 @@
 # NOAH State Contract — Current Memory Save and Tool Slices
 
-> Status: current implementation contract, 2026-09-28. This documents the
+> Status: current implementation contract, 2026-09-29. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
-> execution, and M7 restricted document read. The M8 section below is a
-> pre-implementation contract, not an implemented state transition. This is
+> execution, M7 restricted document read, and M8 single-document answer.
+> M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
 
 ## Boundaries
@@ -95,9 +95,9 @@ contract. M4 Idempotency-Key reservation applies to `memory.save`, not to an
 M6 or M7 read. A fresh read is a new observation, not a replay of
 earlier evidence.
 
-## Proposed M8 single-document answer boundary (not implemented)
+## M8 single-document answer boundary
 
-The [M8 scope contract](../../01-Project/27-Eighth-Vertical-Slice.md) combines
+The implemented [M8 scope contract](../../01-Project/27-Eighth-Vertical-Slice.md) combines
 one M7-style document observation with one bounded local model call. It does
 not change the implemented M6/M7 routes or the stored status values. M8 must
 not call the public M7 endpoint as a substitute for its own execution, since
@@ -134,9 +134,13 @@ Context overrun, document-read failure, and storage failure remain distinct
 failure reasons. A timeout without proof that execution cannot still finish,
 lost DB connectivity or commit acknowledgement, and a lost HTTP response are
 **unknown outcomes**, not evidence for `running -> failed` or an automatic
-retry. The actual evidence-table layout and model Context limit are to be
-settled under the M8 scope contract before implementation. M4's keyed write
-mapping does not apply to M8.
+retry. M4's keyed write mapping does not apply to M8.
+
+The implemented M8 document Context limit is 2,048 UTF-8 bytes after optional
+BOM removal. `noah.document_read_evidence` stores the M8 execution's source
+observation; `noah.document_answer_evidence` references that execution and
+stores the outcome plus NOAH-verified quote/position array. Both rows and
+terminal Task/Execution states commit together.
 
 ## Unknown outcome and idempotency
 
@@ -172,7 +176,7 @@ a new database status. `interrupted` and `recovery_pending` are not current
 database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
-automatically recover M6 `project.documents.list`, M7 Tool, or future M8
+automatically recover M6 `project.documents.list`, M7 Tool, or M8
 executions. Triage can inspect Task, execution, key mapping, memory reference,
 and verification metadata in a read-only PostgreSQL transaction. It does not
 change those records, create or delete memory, or retry a capability. A
