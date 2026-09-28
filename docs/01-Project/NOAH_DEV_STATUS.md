@@ -6,7 +6,9 @@
 
 ## 현재 마일스톤
 
-**M8 — 단일 문서 근거 인용형 질문 응답:** M7 방식으로 검증한 승인 프로젝트의 `.md` 한 건을 제한된 로컬 모델 Context로 사용한다. 모델의 구조화된 인용 후보를 NOAH가 원문과 대조하고 답변을 조립한다. M8 변경은 현재 작업 트리에 있으며 아직 커밋·Push하지 않았다. 실제 사용자 문서는 모델에 전달하지 않았고, 합성 프로젝트로 Compose PostgreSQL 17에서 검증했다. 범위와 제한은 [M8 계약](27-Eighth-Vertical-Slice.md), 실행 결과는 [M8 검증 기록](28-Eighth-Slice-Validation.md)을 따른다.
+**구현 완료 기준선 — M8 단일 문서 근거 인용형 질문 응답:** M7 방식으로 검증한 승인 프로젝트의 `.md` 한 건을 제한된 로컬 모델 Context로 사용한다. 모델의 구조화된 인용 후보를 NOAH가 원문과 대조하고 답변을 조립한다. M8까지 GitHub `main`에 반영된 기준 커밋은 `c0c97ffd6322884e4ae3fa18ff8e8c9105b0cde5`이다. 실제 사용자 문서는 모델에 전달하지 않았고, 합성 프로젝트로 Compose PostgreSQL 17에서 자동 및 수동 검증했다. 범위와 제한은 [M8 계약](27-Eighth-Vertical-Slice.md), 실행 결과는 [M8 검증 기록](28-Eighth-Slice-Validation.md)을 따른다.
+
+**다음 제안 — M9 두 문서 근거 응답:** 같은 프로젝트에서 사용자가 직접 지정한 서로 다른 `.md` 두 건과 질문 하나에 대해 문서별 출처를 보존하는 [구현 전 계약](29-Ninth-Vertical-Slice.md)을 작성했다. M9 API·DB migration·테스트·실행 결과는 아직 없다. 후보 Context 한도와 두 출처 Evidence 구조는 구현 전 검증·확정이 필요하다.
 
 ## 완료된 기능과 구현 범위
 
@@ -60,7 +62,7 @@ M7 자동 합성 검증은 인증·권한 재검사·문서명과 파일 유형�
 
 M7의 **별도 사용자 수동 검증**에서 실제 서버/API의 단일 `.md` 읽기는 본문·UTF-8·원본 byte length·SHA-256 대조를 통과했고 절대경로를 노출하지 않았다. 성공 요청에는 Task·Execution·Document Read Evidence가 각각 정확히 1건 연결됐으며 Evidence에는 본문 전체나 절대경로가 없었다. 기존 Memory와 M6 Evidence는 변하지 않았다. `../<document>` 요청은 HTTP 400 `INVALID_DOCUMENT_IDENTIFIER`와 null Task/Execution ID로 거부됐고 전후 DB snapshot이 같았다. 합성 프로젝트·membership·M7 실행 기록·문서 루트·local mapping만 정리한 뒤 기존 행 수·ID와 토큰/메모/M4 지문이 사전 상태로 복원됐다. Windows PowerShell 5.1에서 실패 응답의 `GetResponseStream()`은 빈 본문을 주었지만 `$_.ErrorDetails.Message | ConvertFrom-Json`으로 오류 코드를 확인했다. 자동 테스트와 수동 검증의 상세 결과는 [M7 검증 기록](26-Seventh-Slice-Validation.md)에 구분해 남겼다.
 
-M8은 합성 한국어·영어 문서로 현재 로컬 모델의 Context 응답을 확인하고, Docker Compose PostgreSQL 17에서 단일 문서 질문·인용 검증·권한 회수·원자적 기록 및 전체 M1–M7 회귀를 검증했다. 기존 사용자 1·토큰 1·메모 2·Task 2·Execution 3·M4 매핑 1을 유지하고, 합성 project/membership 및 M6–M8 Evidence는 정리 후 각각 0건이다. 실제 사용자 문서에 대한 수동 M8 검증은 아직 수행하지 않았다. 세부 결과와 제한은 [M8 검증 기록](28-Eighth-Slice-Validation.md)에 있다.
+M8은 합성 한국어·영어 문서로 현재 로컬 모델의 Context 응답을 확인하고, Docker Compose PostgreSQL 17에서 단일 문서 질문·인용 검증·권한 회수·원자적 기록 및 전체 M1–M7 회귀를 검증했다. 기존 사용자 1·토큰 1·메모 2·Task 2·Execution 3·M4 매핑 1을 유지하고, 합성 project/membership 및 M6–M8 Evidence는 정리 후 각각 0건이다. 실제 개인 문서에 대한 수동 M8 검증은 수행하지 않았으며 공개 합성 문서로 수동 API 검증했다. 세부 결과와 제한은 [M8 검증 기록](28-Eighth-Slice-Validation.md)에 있다.
 
 M8의 **별도 사용자 수동 API 검증**에서는 공개 합성 `.md`에 대한 성공 요청 1회가 HTTP 200, `succeeded`, `project.documents.answer`, `supported`, `grounded=true`를 반환했다. `NOAH의 테스트 동물은 수달이다.` 인용은 원문과 정확히 일치했고 NOAH가 계산한 `[start,end)` 위치도 일치했다. Task·Execution·문서 관찰 Evidence·답변 Evidence가 연결됐으며 추가 `project.*` Execution이나 M6 Tool Evidence는 없었다. `../document`는 HTTP 400 `INVALID_DOCUMENT_IDENTIFIER`와 null Task/Execution으로 거부됐고 전후 DB snapshot이 같았다. 합성 행·mapping·임시 문서 root를 정리한 뒤 `MappingExists=False`, `RootExists=False`, `DbRestored=True`를 확인했다. PowerShell 5.1에서 단일 Evidence 객체에 대한 파이프라인 `.Count`는 false negative였으므로 수동 안내는 `@(...)` 배열 감싸기로 바로잡았다. 자동 검증과 구분한 근거는 [M8 검증 기록](28-Eighth-Slice-Validation.md)에 있다.
 
@@ -88,7 +90,7 @@ M8의 **별도 사용자 수동 API 검증**에서는 공개 합성 `.md`에 대
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. LLM은 읽기 의도 제안과 근거 발췌에만 사용한다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-M8의 자동 및 공개 합성 자료 수동 검증을 마쳤으며 다음 단계는 변경 사항 최종 검토와 사용자 승인 후 커밋·Push다. 다음 M9 후보는 한 문서의 제한된 요약 계약 또는 읽기 전용 Tool 실행의 복구 진단 확대다. 어느 쪽도 아직 확정하지 않았다. M5 후속 안전 복구 계약, M6–M8 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M8의 자동 및 공개 합성 자료 수동 검증과 GitHub 반영을 마쳤다. M9의 다음 제안은 같은 프로젝트의 **사용자 지정 문서 정확히 2개**에 대한 읽기 전용, 출처별 exact quote 응답이다. 이는 [M9 구현 전 계약](29-Ninth-Vertical-Slice.md)이며 아직 구현하거나 검증하지 않았다. 자유 형식 요약, Memory 결합, 자동 검색 및 3개 이상 문서는 M9 범위 밖이다. M5 후속 안전 복구 계약, M6–M8 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 

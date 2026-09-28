@@ -6,6 +6,10 @@
 > M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
 
+The [M9 two-document contract](../../01-Project/29-Ninth-Vertical-Slice.md)
+below is **proposed and unimplemented**. It does not change the stored M1–M8
+states or claim an M9 recovery mechanism.
+
 ## Boundaries
 
 `noah.tasks` is durable canonical Task progress. `noah.execution_records` is
@@ -142,6 +146,46 @@ observation; `noah.document_answer_evidence` references that execution and
 stores the outcome plus NOAH-verified quote/position array. Both rows and
 terminal Task/Execution states commit together.
 
+## Proposed M9 two-document answer boundary (not implemented)
+
+An M9 request names exactly two distinct direct-child `.md` files in one
+authorized project and one question. Authentication, project membership,
+both document identifiers, the question, and the operator mapping are
+preflight checks. Rejection before reservation creates no M9 Task or
+Execution. Recheck token and membership, then durably reserve **one**
+`running/pending` Task and **one** `running` Execution before either file-read
+worker starts. This is an M9 execution, not two M7 or M8 HTTP executions.
+
+Recheck membership immediately before each M7-style safe open. Record D1 and
+D2 as separate verified observations with their own times and original-byte
+hashes; reading them sequentially does not create one filesystem snapshot.
+If either required observation fails, do not send only the other document as
+a complete two-document Context. Check the combined Context budget without
+truncation and recheck membership immediately before transmitting either
+source to the local model. The model receives no Tool authority. Validate the
+strict outcome and source-qualified exact quote proposals; NOAH computes
+`[start,end)` in the claimed observed source. Recheck membership before
+finalizing and again before disclosing the response.
+
+Success, including a verified quote-free `insufficient` or `out_of_scope`
+response, requires both source observations, valid model output, source-aware
+verification, and append-only M9 Evidence. Commit both observations, answer
+and quote Evidence, Task `completed/passed`, and Execution `succeeded` with
+verification time in one transaction. `passed` verifies the bounded process,
+not the semantic truth or completeness of the answer. A definite failure
+after reservation can record Task `failed/failed` and Execution `failed` with
+a safe failure code when storage is available. A denied pre-open check causes
+no file access; a revoked final permission withholds the answer. An
+unconfirmed timeout, DB connection/commit-acknowledgement loss, or response
+loss leaves the outcome uncertain: **Unknown Outcome != Failed.** Do not
+infer a terminal state or automatically retry.
+
+The proposed two-source Evidence structure must not reinterpret the current
+M7/M8 one-observation-per-Execution tables. No new stored Task, Execution, or
+verification status is proposed. M4 keyed write idempotency remains
+`memory.save`-only. M5 read-only Recovery Triage neither inspects nor
+recovers a proposed M9 execution.
+
 ## Unknown outcome and idempotency
 
 **Unknown Outcome != Failed.** `running` means no final durable result has
@@ -177,8 +221,9 @@ database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
 automatically recover M6 `project.documents.list`, M7 Tool, or M8
-executions. Triage can inspect Task, execution, key mapping, memory reference,
-and verification metadata in a read-only PostgreSQL transaction. It does not
+executions; the proposed M9 is outside its scope too. Triage can inspect
+Task, execution, key mapping, memory reference, and verification metadata
+in a read-only PostgreSQL transaction. It does not
 change those records, create or delete memory, or retry a capability. A
 missing memory reference, mismatched actor, contradictory states, or missing
 verification evidence must not be silently converted to success or failure.
