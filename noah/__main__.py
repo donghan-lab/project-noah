@@ -10,6 +10,7 @@ import psycopg
 
 from .db import initialize
 from .document_query import query_project_documents
+from .document_read_query import read_project_document
 from .memory_query import query_memory
 from .recovery import triage_memory_writes
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
@@ -36,12 +37,17 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlsplit(self.path)
         path = parsed.path
         project_route = re.fullmatch(r"/projects/([^/]+)/documents/query", path)
-        if parsed.query or (path not in {"/memories", "/memories/query"} and not project_route):
+        read_route = re.fullmatch(r"/projects/([^/]+)/documents/read", path)
+        if parsed.query or (path not in {"/memories", "/memories/query"}
+                            and not project_route and not read_route):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
         if project_route:
             operation = lambda payload, token, **_options: query_project_documents(
                 project_route.group(1), payload, token)
+        elif read_route:
+            operation = lambda payload, token, **_options: read_project_document(
+                read_route.group(1), payload, token)
         else:
             operation = save_memory if path == "/memories" else query_memory
         options = {"idempotency_key": self.headers.get("Idempotency-Key")} if path == "/memories" else {}

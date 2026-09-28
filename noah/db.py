@@ -43,3 +43,4 @@ def initialize() -> None:
         connection.execute((ROOT / "database" / "001_first_slice.sql").read_text(encoding="utf-8"))
         connection.execute((ROOT / "database" / "002_memory_write_idempotency.sql").read_text(encoding="utf-8"))
         connection.execute((ROOT / "database" / "003_document_tool_evidence.sql").read_text(encoding="utf-8"))
+        connection.execute((ROOT / "database" / "004_document_read_evidence.sql").read_text(encoding="utf-8"))

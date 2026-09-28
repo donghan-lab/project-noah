@@ -2,8 +2,8 @@
 
 > Status: current implementation contract, 2026-09-28. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
-> execution. The M7 extension below is a pre-implementation requirement. This
-> is not the complete future Task or Runtime state machine.
+> execution, and M7 restricted document read. This is not the complete future
+> Task or Runtime state machine.
 
 ## Boundaries
 
@@ -15,13 +15,17 @@ State. These boundaries follow DDR-001, DDR-002, and DDR-006.
 
 The present `memory.save` implementation has one Task and one execution
 attempt per authorized, validated new write. Rejections before Task creation
-have a failed execution record with no Task. The M2 memory GET routes and M3
-`POST /memories/query` do not create Tasks or execution records. M6
+have a failed execution record with no Task. The M1 single-memory GET route,
+M2 memory-list GET route, and M3 `POST /memories/query` do not create Tasks
+or execution records. M6
 `project.documents.list` does create both once its pre-Tool checks pass, as
 specified below. Other future capabilities need their own side-effect and
 retry rules.
 
 ## Stored states and transitions
+
+The table describes the stored values and the `memory.save` transitions.
+M6/M7 Tool transitions using the same values are specified below.
 
 | Record | Current stored states | Transition and required evidence |
 | --- | --- | --- |
@@ -58,9 +62,9 @@ Missing or contradictory evidence is reported, not repaired by triage.
 
 ## Read-only Tool execution boundary
 
-The following is the **implemented M6** `project.documents.list` contract.
-The proposed M7 single-document read uses the same state boundary only if its
-read and evidence checks are implemented as specified in its [scope document](../../01-Project/25-Seventh-Vertical-Slice.md).
+The following is the implemented M6 `project.documents.list` and M7
+`project.documents.read` boundary. M7's byte and evidence checks are
+specified in its [scope document](../../01-Project/25-Seventh-Vertical-Slice.md).
 
 1. Authenticate the user, check project read membership, validate the request
    and model intent (M6), and resolve the operator-registered root before
@@ -70,14 +74,15 @@ read and evidence checks are implemented as specified in its [scope document](..
    reserving a `running/pending` Task and `running` execution in PostgreSQL.
    Their durable reservation precedes starting the Tool worker. A reserved
    attempt is distinguishable from a pre-Tool rejection even if no result was
-   committed. The Tool worker does not own canonical Task state.
+   committed. M7 checks permission once more immediately before dispatch;
+   revocation after reservation is a definite failed attempt with no file
+   open. The Tool worker does not own canonical Task state.
 3. M6 success requires a bounded, independently verified directory
    observation, a current permission check, and append-only Tool Evidence
    linked to the execution. Evidence, Task `completed/passed`, and execution
-   `succeeded` with verification time commit together. M7 must similarly
-   verify the bounded file bytes against the returned content and provenance
-   before an equivalent atomic final commit; this is a proposed contract,
-   not a claim that M7 is implemented.
+   `succeeded` with verification time commit together. M7 verifies bounded
+   file bytes against the returned content and provenance before the same
+   atomic final commit.
 4. A **definite** Tool or verification failure means the worker has ended and
    the failure is established. If PostgreSQL is available, record Task
    `failed/failed` and execution `failed` with a failure code together. A
@@ -86,7 +91,7 @@ read and evidence checks are implemented as specified in its [scope document](..
 
 No new Task, execution, or verification database status is introduced by this
 contract. M4 Idempotency-Key reservation applies to `memory.save`, not to an
-M6 or proposed M7 read. A fresh read is a new observation, not a replay of
+M6 or M7 read. A fresh read is a new observation, not a replay of
 earlier evidence.
 
 ## Unknown outcome and idempotency
@@ -97,7 +102,7 @@ stopped, or that the side effect did not occur. Age and `updated_at` can
 prioritize inspection but cannot establish success, failure, or permission to
 retry. Client response loss also does not imply storage failure.
 
-For M6 and proposed M7 Tool attempts, an execution timeout without proof that
+For M6 and M7 Tool attempts, an execution timeout without proof that
 the worker stopped, lost database connectivity or commit acknowledgement,
 and a lost HTTP response do not establish failure or success. Retain the
 durable state that can be proven and report uncertainty; do not infer a
@@ -123,7 +128,7 @@ a new database status. `interrupted` and `recovery_pending` are not current
 database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
-automatically recover M6 `project.documents.list` or proposed M7 Tool
+automatically recover M6 `project.documents.list` or M7 Tool
 executions. Triage can inspect Task, execution, key mapping, memory reference,
 and verification metadata in a read-only PostgreSQL transaction. It does not
 change those records, create or delete memory, or retry a capability. A

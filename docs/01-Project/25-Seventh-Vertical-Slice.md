@@ -1,8 +1,7 @@
-# M7 proposed slice: verified single project document read
+# M7 restricted project document read
 
-> Status: pre-implementation scope and safety contract, 2026-09-28. No M7
-> code, database migration, API, or validation result exists yet. The current
-> architecture baseline remains the Blueprint, Accepted DDR-001–006,
+> Status: implemented on 2026-09-28 against this pre-implementation safety
+> contract. The architecture baseline remains the Blueprint, Accepted DDR-001–006,
 > [Runtime/State](../02-Architecture/Runtime/State.md), and the
 > [M6 document-listing contract](23-Sixth-Vertical-Slice.md).
 
@@ -78,7 +77,7 @@ and deletion. It does not change M1–M6 behavior or add database state values.
 ## Failure and uncertain outcome contract
 
 Authentication, project membership, malformed target, absent mapping, and
-other pre-Tool rejections must not create a Task or Execution Record. After
+other pre-reservation rejections must not create a Task or Execution Record. After
 preflight, recheck permission and durably reserve `running/pending` Task and
 `running` Execution before starting the read worker, following the M6 Tool
 boundary in [Runtime/State](../02-Architecture/Runtime/State.md).
@@ -100,7 +99,7 @@ Idempotency-Key mapping applies only to `memory.save`; M5 Recovery Triage
 currently inspects only `memory.save` and neither diagnoses nor recovers M6
 or M7 Tool executions.
 
-## Minimum implementation verification for a future M7 task
+## Implementation verification requirements
 
 Use a synthetic user, project, membership, and temporary root, preserving
 existing users, memories, and volumes. Check exact-name selection, permission
@@ -110,16 +109,51 @@ and non-regular entries, root absence/access failure, and bounded-read
 consistency. Verify that content and evidence hash match, that no absolute
 path or document body enters logs, and that Task/Execution/evidence states
 remain consistent across success, definite failure, timeout, and DB errors.
-Run M1–M6 regressions. This section specifies future tests; none have been
-run for M7 in this documentation checkpoint.
+Run M1–M6 regressions. Executed test results and data-preservation checks are
+recorded separately in the [M7 validation report](26-Seventh-Slice-Validation.md).
 
-## Details to fix during implementation review
+## Implemented API and evidence
 
-Choose the exact HTTP route, request/response field names, failure codes,
-and additive evidence schema. Establish how the Windows file handle is
-opened without following a reparse target and how a concurrent replacement
-is detected within the stated threat boundary. These choices must preserve
-the permissions, byte limit, strict decoding, evidence, and unknown-outcome
-rules above. A new DDR is unnecessary for this narrow read if those rules
-fit the accepted boundaries; a broader Tool or security change must be
+The API accepts only an exact filename in JSON at
+`POST /projects/<project_id>/documents/read`:
+
+```powershell
+$body = @{ document_name = 'guide.md' } | ConvertTo-Json
+$headers = @{ Authorization = "Bearer $env:NOAH_API_TOKEN" }
+Invoke-RestMethod -Uri "http://127.0.0.1:8080/projects/$env:NOAH_PROJECT_ID/documents/read" `
+    -Method Post -Headers $headers -ContentType 'application/json; charset=utf-8' -Body $body
+```
+
+On Windows PowerShell 5.1, inspect a rejected request through
+`ErrorDetails.Message`; `GetResponseStream()` may be empty:
+
+```powershell
+try {
+    $badBody = @{ document_name = '../guide.md' } | ConvertTo-Json
+    Invoke-RestMethod -Uri "http://127.0.0.1:8080/projects/$env:NOAH_PROJECT_ID/documents/read" `
+        -Method Post -Headers $headers -ContentType 'application/json; charset=utf-8' `
+        -Body $badBody -ErrorAction Stop
+    throw 'Expected INVALID_DOCUMENT_IDENTIFIER'
+} catch [System.Net.WebException] {
+    $failure = $_.ErrorDetails.Message | ConvertFrom-Json
+    if ([int]$_.Exception.Response.StatusCode -ne 400 -or $failure.failure.code -ne 'INVALID_DOCUMENT_IDENTIFIER') { throw }
+    $failure.failure.code
+}
+```
+
+Use an existing project with read membership and an operator-approved
+`config/project_documents.local.json` mapping as described in [M6 setup](23-Sixth-Vertical-Slice.md).
+The response contains the decoded text, byte count, original-byte SHA-256,
+Task and Execution IDs, and a logical evidence reference; it contains no OS
+path. The capability is `project.documents.read`. The additive
+`noah.document_read_evidence` table stores one observation per execution with
+project/root/name, time, length, hash, UTF-8/BOM metadata, but no body or path.
+Files over the byte limit fail; no `truncated` result is used.
+
+On Windows, the fixed Tool adapter opens the basename with Win32 `CreateFileW`
+and `FILE_FLAG_OPEN_REPARSE_POINT`, then checks the opened handle's attributes
+before reading. A reparse target is rejected; the opened handle supplies the
+bounded bytes and metadata. NOAH independently opens and compares the bytes
+before finalizing evidence. The stated same-user filesystem race remains
+outside this Slice's guarantee. A broader Tool or security change must be
 reviewed against the existing DDRs first.
