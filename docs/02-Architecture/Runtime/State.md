@@ -3,7 +3,8 @@
 > Status: current implementation contract, 2026-09-29. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
 > execution, M7 restricted document read, M8 single-document answer, and M9
-> two-document answer.
+> two-document answer. M10 controlled selection below is a **proposed
+> pre-implementation** contract, not an implemented transition.
 > M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
 
@@ -187,6 +188,47 @@ verification status was introduced. M4 keyed write idempotency remains
 `memory.save`-only. M5 read-only Recovery Triage neither inspects nor
 recovers an M9 execution.
 
+## Proposed M10 controlled-selection boundary — not implemented
+
+The [M10 pre-implementation contract](../../01-Project/31-Tenth-Vertical-Slice.md)
+would accept one question in one authorized project. Authenticate, validate
+the question, check read membership, and resolve the operator root before
+reservation; rejection creates no M10 Task/Execution. Recheck token and
+membership, then reserve **one** durable `running/pending` Task and **one**
+`running` Execution before starting the M6-style candidate-list worker.
+M10 would reuse lower-level M6/M7/M8/M9 verification functions, not their
+HTTP routes, Tasks, Executions, or Evidence rows.
+
+Recheck permission before enumeration and before sending complete, bounded
+filename data to the selection model. A truncated or over-budget list is a
+definite scope failure, not evidence that no document is relevant. Verify
+the model's zero-to-two exact-name proposal against the observed list before
+any selected file open. Recheck permission before each M7-style safe read,
+before a separate M8/M9-style answer-model call, before final commit, and
+before response disclosure. Each selected file gets a fresh observation;
+the filename list and reads are not an atomic filesystem snapshot. Model
+selection cannot confer filesystem or project authority.
+
+A complete empty candidate list or valid zero selection may produce a
+normal `no_document_selected` selection result with no read, answer-model
+call, source, or quote. Commit its complete candidate/selection Evidence,
+Task `completed/passed`, and Execution `succeeded` with `verified_at`
+together; `grounded=false` does not assert that no answer exists. For one or
+two selected files, success requires all M7 observations, M8/M9-compatible
+quote checks, M10-owned selection/source/answer Evidence, and the same
+terminal states in one final transaction. This does **not** repurpose the
+existing M6/M8/M9 Evidence tables. A valid quote-free answer outcome after
+a read is distinct from zero selection. `passed` verifies the bounded
+process, not semantic truth.
+
+A definite post-reservation failure may record Task `failed/failed` and
+Execution `failed` together when storage is available. A selection-model
+failure and an answer-model failure remain distinct. Unconfirmed timeout,
+connection or commit-acknowledgement loss, and response loss preserve only
+provable durable state: **Unknown Outcome != Failed.** No new stored Task,
+Execution, or verification status is proposed. M4 keyed idempotency remains
+`memory.save`-only; M5 Recovery Triage would not inspect or recover M10.
+
 ## Unknown outcome and idempotency
 
 **Unknown Outcome != Failed.** `running` means no final durable result has
@@ -222,7 +264,8 @@ database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
 automatically recover M6 `project.documents.list`, M7 Tool, or M8
-executions; M9 is outside its scope too. Triage can inspect
+executions; M9 is outside its scope too, and proposed M10 would be as well.
+Triage can inspect
 Task, execution, key mapping, memory reference, and verification metadata
 in a read-only PostgreSQL transaction. It does not
 change those records, create or delete memory, or retry a capability. A

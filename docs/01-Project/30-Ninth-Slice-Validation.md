@@ -3,8 +3,9 @@
 > 2026-09-29, Windows and the existing Docker Compose PostgreSQL 17. This
 > records automatic synthetic tests and a separate user manual API check.
 > Starting commit:
-> `8843c6fcd251cb51e07e32c6e3243a049d0158ce`. The M9 work is not yet
-> committed or pushed. No actual personal document was sent to a model.
+> `8843c6fcd251cb51e07e32c6e3243a049d0158ce`. M9 was committed and
+> pushed at `382b4d8e5354ea61ce0d1ff5de496f808ce4ee53`. No actual
+> personal document was sent to a model.
 
 ## Implemented path checked
 

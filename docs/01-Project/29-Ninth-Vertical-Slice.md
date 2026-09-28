@@ -1,8 +1,9 @@
 # M9 explicit two-document grounded answering
 
-> Status: M9 implemented and automatically and manually verified, 2026-09-29; changes are
-> awaiting final review, not committed or pushed. The starting documentation
-> baseline was `8843c6fcd251cb51e07e32c6e3243a049d0158ce`. Executed
+> Status: M9 implemented, automatically and manually verified, and committed
+> to GitHub `main` at `382b4d8e5354ea61ce0d1ff5de496f808ce4ee53`.
+> The starting documentation baseline was
+> `8843c6fcd251cb51e07e32c6e3243a049d0158ce`. Executed
 > results are in [M9 Validation](30-Ninth-Slice-Validation.md). M9 extends
 > the bounded [M8 answer](27-Eighth-Vertical-Slice.md) and the
 > [M7 safe read](25-Seventh-Vertical-Slice.md) within the existing
