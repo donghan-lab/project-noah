@@ -46,3 +46,4 @@ def initialize() -> None:
         connection.execute((ROOT / "database" / "004_document_read_evidence.sql").read_text(encoding="utf-8"))
         connection.execute((ROOT / "database" / "005_document_answer_evidence.sql").read_text(encoding="utf-8"))
         connection.execute((ROOT / "database" / "006_selected_document_answer_evidence.sql").read_text(encoding="utf-8"))
+        connection.execute((ROOT / "database" / "007_auto_document_answer_evidence.sql").read_text(encoding="utf-8"))

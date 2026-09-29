@@ -3,8 +3,8 @@
 > Status: current implementation contract, 2026-09-29. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
 > execution, M7 restricted document read, M8 single-document answer, and M9
-> two-document answer. M10 controlled selection below is a **proposed
-> pre-implementation** contract, not an implemented transition.
+> two-document answer, and M10 controlled selection. M10 uses the existing
+> stored states and has no automatic recovery transition.
 > M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
 
@@ -188,15 +188,15 @@ verification status was introduced. M4 keyed write idempotency remains
 `memory.save`-only. M5 read-only Recovery Triage neither inspects nor
 recovers an M9 execution.
 
-## Proposed M10 controlled-selection boundary — not implemented
+## M10 controlled-selection boundary — implemented
 
-The [M10 pre-implementation contract](../../01-Project/31-Tenth-Vertical-Slice.md)
-would accept one question in one authorized project. Authenticate, validate
+The [M10 contract and implementation](../../01-Project/31-Tenth-Vertical-Slice.md)
+accepts one question in one authorized project. Authenticate, validate
 the question, check read membership, and resolve the operator root before
 reservation; rejection creates no M10 Task/Execution. Recheck token and
 membership, then reserve **one** durable `running/pending` Task and **one**
 `running` Execution before starting the M6-style candidate-list worker.
-M10 would reuse lower-level M6/M7/M8/M9 verification functions, not their
+M10 reuses lower-level M6/M7/M8/M9 verification functions, not their
 HTTP routes, Tasks, Executions, or Evidence rows.
 
 Recheck permission before enumeration and before sending complete, bounded
@@ -226,8 +226,8 @@ Execution `failed` together when storage is available. A selection-model
 failure and an answer-model failure remain distinct. Unconfirmed timeout,
 connection or commit-acknowledgement loss, and response loss preserve only
 provable durable state: **Unknown Outcome != Failed.** No new stored Task,
-Execution, or verification status is proposed. M4 keyed idempotency remains
-`memory.save`-only; M5 Recovery Triage would not inspect or recover M10.
+Execution, or verification status is added. M4 keyed idempotency remains
+`memory.save`-only; M5 Recovery Triage does not inspect or recover M10.
 
 ## Unknown outcome and idempotency
 
@@ -264,7 +264,7 @@ database states and are not inferred from process absence or time alone.
 
 M5 triage currently selects `memory.save` only. It does not inspect or
 automatically recover M6 `project.documents.list`, M7 Tool, or M8
-executions; M9 is outside its scope too, and proposed M10 would be as well.
+executions; M9 and M10 are outside its scope too.
 Triage can inspect
 Task, execution, key mapping, memory reference, and verification metadata
 in a read-only PostgreSQL transaction. It does not

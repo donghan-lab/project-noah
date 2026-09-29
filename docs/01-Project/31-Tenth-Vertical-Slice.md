@@ -1,17 +1,17 @@
-# M10 proposed controlled project document selection contract
+# M10 controlled project document selection
 
-> Status: pre-implementation contract, 2026-09-29. M10 has no API, migration,
-> implementation, automated test, or manual validation yet. The implemented
-> M1–M9 baseline is `382b4d8e5354ea61ce0d1ff5de496f808ce4ee53`.
+> Status: implemented and automatically validated on 2026-09-29. Separate
+> user manual verification has not yet occurred. Implementation started from
+> document baseline `0c7a1076bb4409337881f950a507113806a7346e`.
 > Blueprint 10 and Accepted DDR-001–006 remain authoritative. This bounded
-> proposal extends [M6 listing](23-Sixth-Vertical-Slice.md),
+> implementation extends [M6 listing](23-Sixth-Vertical-Slice.md),
 > [M7 safe read](25-Seventh-Vertical-Slice.md),
 > [M8 single-source grounding](27-Eighth-Vertical-Slice.md),
 > [M9 two-source grounding](29-Ninth-Vertical-Slice.md), and
 > [Runtime/State](../02-Architecture/Runtime/State.md); it does not change
 > their public APIs or Evidence meanings.
 
-## Scope and proposed interface
+## Scope and interface
 
 For one authenticated question in one project, NOAH observes the complete,
 small set of eligible direct-child regular `.md` filenames under the
@@ -22,10 +22,9 @@ boundary. One selected source follows M8's grounding verification; two
 ordered sources follow M9's source-aware verification. NOAH constructs the
 response from verified quotes, not from model-written free prose.
 
-The proposed endpoint is `POST /projects/<project_id>/documents/answer-auto`
+The endpoint is `POST /projects/<project_id>/documents/answer-auto`
 with capability `project.documents.answer.auto`. The only request field is
-`{"question":"..."}`. These names are **proposals**, to be confirmed before
-implementation. The question should initially inherit M8/M9's nonempty,
+`{"question":"..."}`. The question inherits M8/M9's nonempty,
 300-Unicode-character and 512-UTF-8-byte bounds; no user or model OS path or
 document basename is an API input. The authorized project ID remains in the
 route. M8 and M9's explicit selection endpoints remain unchanged.
@@ -72,23 +71,21 @@ to the model.
 
 ## Completeness and Context budget
 
-M6 currently observes at most 50 names with a `truncated` flag. For first
-M10 implementation planning, use **20 candidates** as a smaller *initial
-candidate*, not a finalized limit. Set a separate candidate-name Context
-byte limit and a complete selection-message limit after synthetic Korean and
-English filename probes against the current local Ollama model at
-`num_ctx=4096`. Count UTF-8 bytes of the actual serialized filename data;
-also budget the question, system instructions, schema, and output headroom.
-The precise byte ceilings and selection output token allowance are **not yet
-fixed**. M8/M9's existing answer Context limits remain in force after
-selection and are not enlarged by this proposal.
+M6 observes at most 50 names with a `truncated` flag. M10 fixes **20 eligible
+candidates**, **1,024 UTF-8 bytes** for the compact JSON candidate-name array,
+and **2,048 UTF-8 bytes** for the system plus user selection-message bodies.
+Selection output is limited to 384 tokens under the current `num_ctx=4096`.
+These conservative values follow synthetic English, Korean, mixed, and
+long-name Ollama probes; the [validation record](32-Tenth-Slice-Validation.md)
+states the observed sizes and responses. Count actual serialized UTF-8 bytes
+without truncation. M8/M9 answer Context limits remain unchanged.
 
 An M6-style observation with `truncated=true`, more names than M10's
 validated candidate count, or names/messages exceeding the validated
 selection Context limit must stop **before the selection model call**. Do
 not silently truncate, send a prefix of names, or conclude that the project
 has no relevant document. An explicit `SELECTION_SCOPE_INCOMPLETE`-family
-failure is preferred; implementation should retain distinct safe reasons
+failure is used; implementation retains distinct safe reasons
 for truncated enumeration, excessive count, and Context bytes. A truly empty
 and complete observation can deterministically produce the zero-selection
 result without a model call. A nonempty complete observation may also yield
@@ -104,6 +101,15 @@ provide an OS path, or authorize a file read. Never include the operator's
 absolute root, API token, DB password, or document content in the selection
 Context. Project membership and the dedicated loopback-only Ollama check
 remain NOAH-enforced boundaries.
+
+The selector treats a filename only as a limited clue to a document's topic,
+never as proof of its contents. It evaluates separate parts of a question
+against candidates separately, including clear cross-language topic matches.
+It may select two distinct relevant names for two distinct information needs.
+`none` is for a complete candidate list with no reasonably identifiable
+relevant name; a topic clue is still required to select a name. NOAH continues
+to reject anything other than exact observed filenames, and actual document
+facts are established only by later safe reads and verified quotes.
 
 Proposed strict selection output:
 
@@ -180,10 +186,10 @@ answer-model failures. A successful selection followed by answer failure is
 The document bodies remain untrusted data and neither model receives Tool
 authority.
 
-## Minimal M10 Evidence and atomicity proposal
+## M10 Evidence and atomicity
 
-Define a small M10-specific append-only Evidence structure before writing
-SQL. A bounded parent selection record should link `execution_id`,
+Migration `007_auto_document_answer_evidence.sql` adds small M10-specific
+append-only parent/source/quote Evidence tables. The bounded parent links `execution_id`,
 `project_id`, logical `root_id`, list `observed_at`, complete ordered
 candidate names, count, `truncated=false` for normal results, canonical
 candidate-set hash, `selection_outcome`, valid raw model candidate names,
@@ -198,9 +204,7 @@ ID, exact basename, independent `observed_at`, original byte length and
 SHA-256, UTF-8 encoding and BOM flag to the same M10 Execution and project.
 For answered requests, store the verified answer outcome and up to three
 short quotes, each with source ID and NOAH-computed `[start,end)`. The
-0-source branch stores no source or quote rows. M10 may use a parent plus
-bounded source/quote children or another equivalently constrained small
-schema; this is **not yet a SQL design**. Do not persist whole documents,
+0-source branch stores no source or quote rows. Do not persist whole documents,
 model prompts, OS absolute paths, tokens, or DB credentials. If invalid
 model output is rejected, record a safe failure code rather than trusting or
 releasing its raw text.
@@ -230,7 +234,7 @@ replacement, link/reparse or same-file alias, selected read/UTF-8 failure,
 answer Context excess, answer-model unavailable/timeout, invalid grounding
 output, source/quote mismatch, permission revocation, DB failure, and
 uncertain outcome. The exact public HTTP status/code mapping is an
-implementation-stage decision consistent with M6–M9. A valid zero selection
+decision consistent with M6–M9. A valid zero selection
 is **not** a failure.
 
 Implementation tests must use synthetic projects and roots to cover empty,
@@ -248,10 +252,40 @@ atomicity, and M1–M9 regression. Real Ollama Context tests must use only
 synthetic Korean and English names/documents. Preserve existing users,
 memories, records, and Docker volume; clean up only test-owned rows/files.
 
-This bounded proposal follows DDR-001's durable Task/Runtime separation,
+This bounded implementation follows DDR-001's durable Task/Runtime separation,
 DDR-002's model/Harness and policy boundary, DDR-004's provenance and
 Evidence, and DDR-006's result/verification/retry contract. It does not
 promote documents to Knowledge or alter Memory (DDR-003), nor change
 protected Identity (DDR-005). No new long-term DDR is required by this
-proposed scope. A future general retrieval policy or cross-domain
+scope. A future general retrieval policy or cross-domain
 Memory+Document source model would need separate review.
+
+## Local API use after operator setup
+
+Apply additive migrations with `python -m noah init` only when needed. An
+operator must first register the project and its document root in the Git
+excluded `config/project_documents.local.json`; the authenticated user must
+already have project read membership. Start the dedicated loopback Ollama
+service and `python -m noah serve` from the repository. The existing M6–M9
+operator mapping and token setup procedures still apply. No OS path or
+document name is accepted from this M10 request.
+
+In Windows PowerShell 5.1, reuse the existing private `$Token` and the
+authorized `$ProjectId` without printing either. The JSON Content-Type
+must declare UTF-8 for Korean questions:
+
+```powershell
+$Payload = @{ question = '이 프로젝트의 테스트 동물은 무엇이야?' } | ConvertTo-Json -Compress
+$Headers = @{ Authorization = "Bearer $Token" }
+$Result = Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8080/projects/$ProjectId/documents/answer-auto" -Headers $Headers -ContentType 'application/json; charset=utf-8' -Body $Payload
+$Result | Select-Object status, capability, outcome, grounded, selected_document_names, task_id, execution_id
+$Result.sources
+$Result.evidence
+```
+
+For a complete zero selection, expect HTTP 200, `outcome` equal to
+`no_document_selected`, `grounded=false`, no sources or quotes. For selected
+documents, inspect the returned D1/D2 source names and exact quotes; the
+model's selected names do not themselves prove document contents. Manual
+validation with a synthetic operator mapping and cleanup is a separate
+pending step.
