@@ -1,6 +1,6 @@
-# M11 — Controlled Read-Only Capability Routing (pre-implementation contract)
+# M11 — Controlled Read-Only Capability Routing
 
-> Status: **contract only; M11 is not implemented or validated**.
+> Status: **implemented; automated and user manual HTTP E2E validated; Git commit/push pending**.
 > Baseline: M10 `main` commit `12c28b4b9dca3a084f7a976b86f251ae7d3020e1`.
 > Architecture: [Runtime state](../02-Architecture/Runtime/State.md),
 > [DDR-001](../02-Architecture/Decisions/DDR-001-task-state-runtime-boundary.md),
@@ -204,23 +204,22 @@ plans, multiple capability calls, automatic retry/fallback, arbitrary model
 arguments, generic registry/framework, Agent loop, and new Knowledge or
 Session persistence. Existing M1–M10 endpoints and contracts remain intact.
 
-## Remaining implementation checks
+## Implemented bounds and remaining limits
 
-The exact routing prompt byte budget, output-token cap, and timeout must be
-chosen with synthetic Korean/English inputs on the current local Ollama model
-before M11 is declared validated. The proposed `/requests/route` name and
-response envelope are fixed here for a reviewable first implementation, not
-claims about existing endpoints. The final Memory disclosure check needs a
-bounded implementation that reuses current visibility rules rather than a
-second, weaker policy. Uniform durable routing audit and cross-capability
-request correlation are explicitly deferred; if those become mandatory for
-this first Slice, the Task/Execution contract must be reconsidered before
-implementation.
+The implementation caps the routing system/user message contents at **2,048
+UTF-8 bytes** and the structured model output at **64 tokens**. It uses the
+existing local Ollama adapter's 60-second connection timeout and current
+model settings. Public synthetic Korean/English choices passed the opt-in
+actual-model test; this is not a universal routing-quality guarantee. The
+final Memory disclosure check reuses the current SQL visibility predicate and
+revalidates each bounded Evidence quote. Uniform durable routing audit and
+cross-capability request correlation remain deferred; if those become
+mandatory, the Task/Execution contract needs separate review.
 
-## Implementation and verification plan — not yet performed
+## Implementation and verification scope
 
-Expected code scope: one small routing module (for example
-`noah/capability_route.py`) and a single new branch in `noah/__main__.py`.
+Implemented code scope: one small routing module,
+`noah/capability_route.py`, and a single new branch in `noah/__main__.py`.
 The existing `noah.memory_query.query_memory` and
 `noah.document_auto_query.answer_auto_documents` are the delegates; their
 HTTP routes are not invoked internally. Tests belong in a focused M11 test
@@ -247,8 +246,37 @@ end-to-end check must preserve baseline data and prove that each selected
 branch calls only its existing function and that M10 alone creates its one
 Task/Execution. No real personal Memory or document is needed for these tests.
 
-M11 is complete only after the bounded route, denial/failure behavior,
-permission timing, actual model selection, delegated results, persistent
-record counts, full regression, and synthetic-data cleanup are verified and
-recorded in an M11 validation report. This document alone does not establish
-those results.
+The implementation uses `noah/capability_route.py` and one new POST branch in
+`noah/__main__.py`. The bounded route, denial/failure behavior, permission
+timing, actual-model selection, delegated results, record counts, full
+regression, and synthetic-data cleanup are documented in the
+[M11 validation record](35-Eleventh-Slice-Validation.md). The separate user
+manual HTTP E2E and exact synthetic-data cleanup are also recorded there and
+in the [operator procedure](36-Eleventh-Slice-Manual-Validation.md).
+
+## Running the implemented API
+
+Use the existing Docker Compose PostgreSQL 17, dedicated loopback-only Ollama
+`127.0.0.1:11435`, and `python -m noah serve`. Existing user tokens and project
+memberships are reused; do not create or reset them just to start M11. The
+normal memory and project-document endpoints remain available independently.
+
+In Windows PowerShell 5.1, keep the existing token in a local variable without
+printing it. A public synthetic question without a project is shaped as:
+
+```powershell
+$Body = @{ question = '내가 저장한 공개 테스트 메모를 찾아줘.' } | ConvertTo-Json -Compress
+$Utf8 = [System.Text.Encoding]::UTF8.GetBytes($Body)
+Invoke-RestMethod -Uri 'http://127.0.0.1:8080/requests/route' -Method Post `
+  -Headers @{ Authorization = "Bearer $Token" } `
+  -ContentType 'application/json; charset=utf-8' -Body $Utf8
+```
+
+For a document question, include the **user-supplied, already readable**
+`project_id` in `$Body` and use only a public synthetic project's documents
+until the operator has verified the local model boundary. The response has a
+top-level `status`, a `routing` decision, and the selected M3 or M10 body in
+`result`. An M3 result has no Task/Execution IDs; an M10 result contains its
+own IDs and Evidence. `no_action` has `result=null` and runs neither function.
+Do not infer that a model's route choice or a grounded quote proves semantic
+truth; inspect the delegated outcome and evidence.

@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 import psycopg
 
 from .db import initialize
+from .capability_route import route_read_request
 from .document_query import query_project_documents
 from .document_answer_query import answer_project_document
 from .document_selected_query import answer_selected_documents
@@ -17,6 +18,15 @@ from .document_read_query import read_project_document
 from .memory_query import query_memory
 from .recovery import triage_memory_writes
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
+
+
+def _unique_json_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON key")
+        result[key] = value
+    return result
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -44,12 +54,14 @@ class Handler(BaseHTTPRequestHandler):
         answer_route = re.fullmatch(r"/projects/([^/]+)/documents/answer", path)
         selected_route = re.fullmatch(r"/projects/([^/]+)/documents/answer-selected", path)
         auto_route = re.fullmatch(r"/projects/([^/]+)/documents/answer-auto", path)
-        if parsed.query or (path not in {"/memories", "/memories/query"}
+        if parsed.query or (path not in {"/memories", "/memories/query", "/requests/route"}
                             and not project_route and not read_route
                             and not answer_route and not selected_route and not auto_route):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
-        if project_route:
+        if path == "/requests/route":
+            operation = route_read_request
+        elif project_route:
             operation = lambda payload, token, **_options: query_project_documents(
                 project_route.group(1), payload, token)
         elif read_route:
@@ -78,8 +90,10 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(status, body)
             return
         try:
-            payload = json.loads(self.rfile.read(length))
-        except (json.JSONDecodeError, UnicodeDecodeError):
+            raw = self.rfile.read(length)
+            payload = (json.loads(raw, object_pairs_hook=_unique_json_object)
+                       if path == "/requests/route" else json.loads(raw))
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
             payload = None
         status, body = operation(payload, self._token(), **options)
         self._respond(status, body)

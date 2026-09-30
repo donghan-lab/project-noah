@@ -1,9 +1,10 @@
 # NOAH State Contract — Current Memory Save and Tool Slices
 
-> Status: current implementation contract, 2026-09-29. This documents the
+> Status: current implementation contract, 2026-10-01. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
 > execution, M7 restricted document read, M8 single-document answer, and M9
-> two-document answer, and M10 controlled selection. M10 uses the existing
+> two-document answer, M10 controlled selection, and M11 read-only routing.
+> M10 and M11 use the existing
 > stored states and has no automatic recovery transition.
 > M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
@@ -229,10 +230,10 @@ provable durable state: **Unknown Outcome != Failed.** No new stored Task,
 Execution, or verification status is added. M4 keyed idempotency remains
 `memory.save`-only; M5 Recovery Triage does not inspect or recover M10.
 
-## M11 read-only routing boundary — proposed, not implemented
+## M11 read-only routing boundary — implemented
 
-The [M11 pre-implementation contract](../../01-Project/34-Eleventh-Vertical-Slice.md)
-proposes one authenticated request selecting either the existing M3 Memory
+The [M11 contract and implementation](../../01-Project/34-Eleventh-Vertical-Slice.md)
+accepts one authenticated request selecting either the existing M3 Memory
 Query, the existing M10 Project Document Auto Answer, or no action. The routing
 model proposes only a fixed allowlist choice. NOAH validates it and invokes at
 most one internal function; no new generic invocation runtime is implied.
@@ -252,7 +253,7 @@ There is no shared persistent decision record that joins an M11 route choice
 to both delegates. This is an explicit first-slice observability limitation,
 especially for M3 and `no_action`, and must be revisited before claiming
 durable multi-step orchestration. **Unknown Outcome != Failed** still applies
-to any delegated attempt. No new stored state values are proposed; M5 triage
+to any delegated attempt. No new stored state values are added; M5 triage
 remains limited to `memory.save` and does not recover M11 or M10.
 
 ## Unknown outcome and idempotency

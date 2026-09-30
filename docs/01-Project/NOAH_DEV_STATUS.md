@@ -10,7 +10,7 @@
 
 **현재 구현 기준선 — M10 구현·자동 및 사용자 수동 검증·GitHub 반영 완료:** 한 프로젝트의 완전하게 관찰된 소규모 `.md` 파일명 집합에서 모델이 질문용 문서 0~2개만 제안하고, NOAH가 정확한 이름·권한·실제 파일 관찰·인용을 검증한다. GitHub `main` 기준 커밋은 `12c28b4b9dca3a084f7a976b86f251ae7d3020e1`이다. [M10 계약과 실행 안내](31-Tenth-Vertical-Slice.md), [M10 검증 기록](32-Tenth-Slice-Validation.md)을 따른다. 첫 수동 실행은 유효한 `no_document_selected`로 끝나 two-source 목표를 통과하지 못했다. 선택 prompt/실제 모델 검증 보완 후 두 번째 수동 실행은 D1/D2 exact quote와 `grounded=true`, `partial`로 현 M9/M10 계약상 정상 two-source 성공이었다. 두 실행의 합성 데이터는 별도 정리 후 기존 DB baseline으로 복원됐다. `partial`은 의미적 완전성을 보증하지 않는다.
 
-**M11 계약 단계 — 미구현·미검증:** [Controlled Read-Only Capability Routing 계약](34-Eleventh-Vertical-Slice.md)은 기존 M3 Memory Query, M10 Project Document Auto Answer, 또는 `no_action` 중 하나만 선택하는 새 경계를 정의한다. 이 문서 작성은 M11 API·라우팅 코드·테스트·DB 변경이나 실제 실행 검증을 뜻하지 않는다.
+**M11 구현·자동 및 사용자 수동 HTTP E2E 검증 완료, GitHub 반영 대기:** [Controlled Read-Only Capability Routing](34-Eleventh-Vertical-Slice.md)은 인증 후 로컬 모델이 기존 M3 Memory Query, M10 Project Document Auto Answer, 또는 `no_action` 중 하나만 제안하게 한다. NOAH가 제안을 검증하고 기존 내부 함수를 최대 한 번 호출한다. Compose PostgreSQL 17 전용·전체 회귀 및 실제 Ollama 선택 자동 검증과 별도 사용자 수동 HTTP E2E 결과는 [M11 검증 기록](35-Eleventh-Slice-Validation.md)에 구분했다. 합성 자료 cleanup 뒤 기존 DB counts/fingerprints와 named volume이 유지됐다.
 
 ## 완료된 기능과 구현 범위
 
@@ -28,6 +28,7 @@
 - `POST /projects/<project_id>/documents/answer`는 인증·프로젝트 읽기 권한·단일 문서명·질문을 검증한다. M7 내부 safe-read와 원본 hash 검증을 재사용하고 2,048 UTF-8 byte 이하의 본문을 별도 로컬 모델에 untrusted data로 전달한다. 모델은 outcome과 최대 3개 exact quote만 제안하며, NOAH가 240 Unicode 문자 이하 인용을 원문에 대조하고 첫 `[start,end)` 위치를 계산한다. 하나의 M8 Task/Execution에 문서 관찰 Evidence와 답변 Evidence를 원자적으로 연결한다. 추가 Tool과 자유 형식 모델 답변은 사용하지 않는다.
 - `POST /projects/<project_id>/documents/answer-selected`는 사용자가 지정한 서로 다른 직접 하위 `.md` 정확히 두 건을 D1/D2 순서로 읽는다. Windows에서는 no-follow 핸들의 volume/file index, POSIX에서는 device/inode로 동일 실제 파일을 차단한다. 두 본문 합계 최대 2,048 UTF-8 bytes와 system/user 메시지 본문 합계 최대 3,456 bytes를 적용한다. 모델은 기존 다섯 outcome과 최대 3개의 `{source_id, quote}`만 제안하고, NOAH가 해당 문서의 원문과 위치를 대조한다. 하나의 M9 Task/Execution에 별도 부모·문서별 관찰·인용 Evidence를 원자적으로 연결한다. 다른 문서 자동 탐색, 추가 Tool, 자유 형식 답변은 없다.
 - `POST /projects/<project_id>/documents/answer-auto`는 질문 하나만 받아 M6 방식으로 후보를 완전하게 관찰하고 M7에서 읽을 수 있는 이름만 남긴다. 최대 20개·파일명 JSON 1,024 UTF-8 bytes·selection 메시지 2,048 UTF-8 bytes를 적용한다. 모델은 파일명만 보고 0~2개를 제안하며 NOAH가 정확히 대조한다. 0개는 `no_document_selected` 정상 결과이고, 1/2개는 M7 안전 읽기와 M8/M9 인용 검증 함수를 재사용한다. 하나의 M10 Task/Execution과 전용 후보·source·quote Evidence를 원자적으로 확정한다. 모델에 Tool 권한이나 OS 경로를 주지 않는다.
+- `POST /requests/route`는 토큰을 먼저 인증하고, 제공된 프로젝트 ID가 있으면 읽기 권한을 모델 호출 전에 확인한다. 로컬 모델은 `memory.query`·`project.documents.answer.auto`·`no_action` 중 하나만 제안하며 임의 인자를 전달할 수 없다. NOAH는 기존 M3 또는 M10 내부 함수 하나를 호출하고 결과 본문과 실패 상태를 보존한다. M3 성공 응답은 공개 직전 토큰·인용 메모 가시성을 다시 확인한다. M11 자체 Task/Execution/Evidence는 만들지 않는다.
 - 기존 `compose/.env`와 Docker Compose PostgreSQL 설정을 사용한다. 로컬 운영 명령으로 스키마 초기화, 사용자 토큰 발급 및 프로젝트 생성을 지원한다.
 
 구현 위치: [`noah/`](../../noah/), [`database/`](../../database/), [`tests/`](../../tests/). M10 migration은 [`007_auto_document_answer_evidence.sql`](../../database/007_auto_document_answer_evidence.sql)이다. 실행 절차는 M1–M9 각 Slice 문서와 [M10](31-Tenth-Vertical-Slice.md)에 있다. M2·M3·M5에는 DB 스키마 변경이 없었고, M4·M6–M10은 기존 데이터를 유지하는 추가 테이블을 마이그레이션했다.
@@ -47,6 +48,7 @@
 | 기존 Docker Compose PostgreSQL 17 + 로컬 Ollama — M8 | 2026-09-29 | M1–M8 전체 79개 통과, 실패·오류·건너뜀 0개 | 합성 프로젝트·문서의 한정된 모델 Context, exact quote 검증, 권한 재검사, 원자적 Evidence, 실제 합성 Ollama 호출 및 M1–M7 회귀 |
 | 기존 Docker Compose PostgreSQL 17 + 로컬 Ollama — M9 | 2026-09-29 | M1–M9 전체 93개 중 91개 통과·2개 건너뜀, 실패·오류 0개; 건너뛴 M3/M6 실제 Ollama 2개는 별도 실행 통과 | M9 전용 14개 중 실제 모델 포함 14개 통과, 출처별 인용·파일 identity·권한 회수·원자적 Evidence 및 M1–M8 회귀. M3/M6 opt-in 환경변수는 별도로 설정해 실행 |
 | 기존 Docker Compose PostgreSQL 17 + 전용 로컬 Ollama — M10 | 2026-09-29 | M1–M10 전체 116개 중 109개 통과·7개 opt-in 건너뜀, 실패·오류 0개; 실제 합성 Ollama selection 2개와 answer 1개 별도 통과 | M10 전용 23개 중 기본 20개 통과·실제 모델 3개 건너뜀. 한국어 복합 질문의 영어 주제 파일명 정확히 2개 선택, 무관한 질문의 `none`, 두 source exact quote·위치·hash를 실제 모델에 검증; 기존 권한·근거·원자성 및 M1–M9 회귀 유지 |
+| 기존 Docker Compose PostgreSQL 17 + 전용 로컬 Ollama — M11 | 2026-10-01 | 최종 M11 전용 17개 중 기본 16개 통과·실제 모델 opt-in 1개 건너뜀; 추가 결정적 테스트 전에 수행한 opt-in 별도 실행은 16개 모두 통과. 최종 M1–M11 전체 133개 중 125개 통과·opt-in 8개 건너뜀, 실패·오류 0개 | 실제 Ollama의 공개 합성 질문에서 Memory·Document·No Action 세 선택 통과. 기존 M3/M10 함수의 위임 실행, 권한 회수, 중복 Task/Execution 방지, 결과 보존은 별도 결정적 Compose 테스트로 검증. 별도 사용자 수동 HTTP E2E도 세 경로 모두 통과; M10 `partial` grounded two-source Evidence와 cleanup을 [M11 기록](35-Eleventh-Slice-Validation.md)에 분리 기재 |
 
 M1 Compose 테스트는 실제 외래 키 위반에 따른 메모 쓰기 롤백과 실패 Task·실행 기록을 확인했다. M1의 재시작 검증은 HTTP 서버 인스턴스를 **같은 Python 프로세스에서** 종료·재생성한 것이고, M4는 별도 테스트에서 NOAH Python 서버 **프로세스 자체를** 종료·재시작한 뒤 동일 키 재요청을 확인했다. 자동 테스트용 행은 정리했다. 초기 7개 테이블에 M4 1개, M6 1개, M7 1개, M8 1개, M9 Evidence 3개, M10 Evidence 3개가 추가되어, **현재 `noah` 스키마는 17개 테이블**이다. M6–M10 합성 검증 정리 후 관련 Evidence 테이블의 행은 각각 0건이지만 테이블은 유지된다. 기존 Compose 컨테이너와 named volume은 삭제하거나 초기화하지 않았다.
 
@@ -78,6 +80,8 @@ M9의 **별도 사용자 수동 API 검증**에서는 공개 합성 문서 두 �
 
 M10의 **자동 합성 검증**에서는 20개 후보·UTF-8 byte 및 메시지 한도, 0/1/2개 선택, 정확한 후보 이름 검증, 파일명 instruction 무시, 모델 오류, 권한 회수, 한 Task/Execution과 M10 전용 Evidence를 확인했다. 초기 실제 Ollama opt-in 테스트는 구조만 검증해 유효한 `none`도 통과할 수 있었다. 보완 후 실제 모델의 한국어 복합 질문에서 영어 주제 파일명 2개 정확 선택과 무관한 질문의 `none`을 각각 단언해 통과했다. 양쪽 source의 인용을 가진 `partial` stub 회귀와 실제 Ollama의 두 단계 selection/answer 회귀도 추가해 통과했다. 첫 **사용자 수동 API 시도**에서는 후보 2개를 완전히 관찰하고 selection model을 호출했으나 유효한 `none`이 반환되어 HTTP 200 `no_document_selected`, `grounded=false`로 끝났다. 이는 정상 0개 선택 계약이지만 계획된 2-source E2E는 미통과였다. 같은 요청을 재전송하지 않았고 합성 행·파일을 정리해 DB baseline을 복원했다. 두 번째 **별도 수동 API 시도**는 성공 요청 1회로 후보·선택 2개, D1/D2 출처별 exact quote 2개, Unicode 위치와 원본 hash 일치, `grounded=true`, `partial`을 확인했다. M10 Task/Execution/Evidence 연결과 정상 snapshot delta, legacy Evidence 부재 및 본문·절대경로·인증정보 미노출도 검증했다. `partial`은 양쪽 인용이 있어도 허용되므로 이는 현 계약상 정상 two-source grounded 성공이며 `supported`나 완전한 의미적 답변으로 재표현하지 않는다. 두 번째 합성 데이터도 별도 cleanup 후 기존 사용자 1·토큰 1·메모 2·Task 2·Execution 3·M4 매핑 1의 사전 행 수·비공개 지문으로 정확히 복원됐고 project·membership·M6–M10 Evidence·running 기록은 0건이다. 자동 테스트와 두 수동 실행의 구분은 [M10 검증 기록](32-Tenth-Slice-Validation.md)에 남겼다.
 
+M11의 **별도 사용자 수동 HTTP E2E**에서는 합성 Memory 요청이 `memory.query`와 grounded 원문 인용을 반환하고 영속 DB delta 0건을 유지했다. 합성 프로젝트 문서 요청은 `project.documents.answer.auto`로 두 source를 선택해 `partial` 및 출처별 exact Evidence 2건을 반환했다. 읽기 전용 DB 검증에서 M10 Task/Execution 한 쌍, 후보·source·quote Evidence, Unicode 위치·hash 일치와 legacy Evidence 부재를 확인했다. `no_action`은 내부 capability 실행과 영속 DB delta가 모두 0건이었다. 별도 cleanup 후 기존 행 수·비공개 지문, local mapping·파일·root 제거, PostgreSQL named volume 유지가 확인됐다. PowerShell 5.1의 Docker volume Go-template 오류와 채팅 전달 중 Unicode escape가 literal로 바뀐 검증 스크립트 오류는 절차 문제였으며, API 재요청 없이 읽기 전용 검증을 바로잡았다. 자세한 자동/수동 구분과 수정된 안내는 [M11 검증 기록](35-Eleventh-Slice-Validation.md) 및 [수동 절차](36-Eleventh-Slice-Manual-Validation.md)에 있다.
+
 ## 알려진 제한 사항
 
 - 메모 쓰기 멱등성은 새 요청의 선택적 키에만 적용된다. 키 없는 과거·현재 쓰기는 재시도로 중복될 수 있고, 확정 실패를 같은 키로 자동 재실행하지 않는다. 커밋 결과가 불확실할 때는 같은 키로 내구 상태를 재조회할 수 있으나 자동 복구는 없다.
@@ -89,6 +93,7 @@ M10의 **자동 합성 검증**에서는 20개 후보·UTF-8 byte 및 메시지 
 - M8은 선택된 단일 문서의 실제 인용과 위치만 검증한다. 인용의 현실 세계 사실성이나 질문과의 완전한 의미적 적합성은 증명하지 않는다. 2,048 UTF-8 byte Context 초과 문서는 실패하며 자동 분할·요약하지 않는다. M5 Recovery Triage는 M8 실행을 복구하지 않는다.
 - M9의 `grounded` 역시 D1/D2 원문 인용·위치·관찰 hash의 연결만 검증한다. 두 인용이 질문에 의미상 충분하거나 현실 세계에서 참인지는 증명하지 않는다. 두 문서 합계 2,048 UTF-8 bytes 또는 전체 프롬프트 3,456 bytes 초과는 조용히 자르지 않고 거부한다. 순차 관찰은 단일 파일시스템 snapshot이 아니며, M5는 M9을 복구하지 않는다.
 - M10 후보 선택은 파일명만 보므로 관련 문서를 찾는 품질이나 질문에 대한 의미적 정답을 보증하지 않는다. 20개·파일명 JSON 1,024 UTF-8 bytes·selection 메시지 2,048 UTF-8 bytes 제한을 넘으면 일부만 모델에 보내지 않고 실패한다. 후보 관찰과 후속 파일 관찰은 같은 filesystem snapshot이 아니다. `grounded`는 인용이 관찰 원문과 일치함을 뜻하며 M5는 M10을 복구하지 않는다.
+- M11은 두 기존 읽기 기능 중 하나만 고른다. `memory.query`는 M11의 라우팅 식별자로 M3의 영속 Capability ID가 아니며, 라우팅 결정의 공통 영속 감사 기록도 없다. M3에는 여전히 Task/Execution이 없고 M10은 자기 한 쌍만 만든다. 실제 모델의 선택이 항상 의미상 옳다는 보증은 없으며, 수동 E2E의 `partial`/exact quote도 질문의 의미적 완전성을 증명하지 않는다. 모델에 이미 전달된 Context는 이후 권한 회수 시 되돌릴 수 없지만 반환 직전 권한 상실은 공개를 차단한다.
 - HTTP API는 로컬호스트에만 바인딩한다. 원격 배포용 TLS, 운영 인증·권한 관리, 속도 제한은 범위 밖이다.
 - `noah init`은 첫 스키마와 M4·M6–M10의 추가 테이블 마이그레이션을 차례로 적용한다. 일반화된 마이그레이션 버전 관리·롤백 체계는 아직 없다.
 - `noah.users`는 인증된 사용자 Principal이며, DDR-005의 보호된 NOAH Identity Core 구현이 아니다.
@@ -104,7 +109,7 @@ M10의 **자동 합성 검증**에서는 20개 후보·UTF-8 byte 및 메시지 
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. LLM은 읽기 의도 제안과 근거 발췌에만 사용한다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. 다음 M11은 [읽기 전용 Capability Routing의 구현 전 계약](34-Eleventh-Vertical-Slice.md)만 작성했으며 아직 구현·검증하지 않았다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing의 구현·자동 및 사용자 수동 HTTP E2E 검증을 완료했고 GitHub 반영은 남아 있다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 
