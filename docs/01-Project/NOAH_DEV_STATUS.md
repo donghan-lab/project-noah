@@ -1,14 +1,16 @@
 # NOAH 개발 현황
 
-> 기준일: 2026-09-29 (Asia/Seoul)
+> 기준일: 2026-10-01 (Asia/Seoul)
 > 성격: 구현·검증 진행 상황의 요약. 기존 Blueprint와 Accepted DDR을 대체하거나 변경하지 않는다.
 > 첫 Slice 기준 커밋: `061dbea` — 인증된 PostgreSQL 메모 저장 구현. 이후 반영 상태는 Git 기록을 따른다.
 
 ## 현재 마일스톤
 
-**구현 완료 기준선 — M9 두 문서 근거 응답:** M8 단일 문서 기능에 이어, 사용자가 직접 지정한 같은 프로젝트의 서로 다른 `.md` 두 건을 출처별로 검증한다. M7 안전 읽기와 파일 identity 대조를 거친 뒤 로컬 모델의 인용 후보를 NOAH가 원문·위치에 대조하고 독립 Task·Execution 및 M9 Evidence에 기록한다. M9까지 GitHub `main`에 반영된 기준 커밋은 `382b4d8e5354ea61ce0d1ff5de496f808ce4ee53`이다. 공개 합성 프로젝트로 Compose PostgreSQL 17의 자동 및 사용자 수동 API 검증을 완료했고 실제 개인 문서를 모델에 전달하지 않았다. 범위는 [M9 계약](29-Ninth-Vertical-Slice.md), 결과는 [M9 검증 기록](30-Ninth-Slice-Validation.md)을 따른다.
+**이전 기준선 — M9 두 문서 근거 응답:** M8 단일 문서 기능에 이어, 사용자가 직접 지정한 같은 프로젝트의 서로 다른 `.md` 두 건을 출처별로 검증한다. M7 안전 읽기와 파일 identity 대조를 거친 뒤 로컬 모델의 인용 후보를 NOAH가 원문·위치에 대조하고 독립 Task·Execution 및 M9 Evidence에 기록한다. M9까지 GitHub `main`에 반영된 기준 커밋은 `382b4d8e5354ea61ce0d1ff5de496f808ce4ee53`이다. 공개 합성 프로젝트로 Compose PostgreSQL 17의 자동 및 사용자 수동 API 검증을 완료했고 실제 개인 문서를 모델에 전달하지 않았다. 범위는 [M9 계약](29-Ninth-Vertical-Slice.md), 결과는 [M9 검증 기록](30-Ninth-Slice-Validation.md)을 따른다.
 
-**M10 구현·자동 및 사용자 수동 검증 완료, GitHub 반영 대기:** 한 프로젝트의 완전하게 관찰된 소규모 `.md` 파일명 집합에서 모델이 질문용 문서 0~2개만 제안하고, NOAH가 정확한 이름·권한·실제 파일 관찰·인용을 검증한다. [M10 계약과 실행 안내](31-Tenth-Vertical-Slice.md), [M10 검증 기록](32-Tenth-Slice-Validation.md)을 갱신했다. 첫 수동 실행은 유효한 `no_document_selected`로 끝나 two-source 목표를 통과하지 못했다. 선택 prompt/실제 모델 검증 보완 후 두 번째 수동 실행은 D1/D2 exact quote와 `grounded=true`, `partial`로 현 M9/M10 계약상 정상 two-source 성공이었다. 두 실행의 합성 데이터는 별도 정리 후 기존 DB baseline으로 복원됐다. `partial`은 의미적 완전성을 보증하지 않는다.
+**현재 구현 기준선 — M10 구현·자동 및 사용자 수동 검증·GitHub 반영 완료:** 한 프로젝트의 완전하게 관찰된 소규모 `.md` 파일명 집합에서 모델이 질문용 문서 0~2개만 제안하고, NOAH가 정확한 이름·권한·실제 파일 관찰·인용을 검증한다. GitHub `main` 기준 커밋은 `12c28b4b9dca3a084f7a976b86f251ae7d3020e1`이다. [M10 계약과 실행 안내](31-Tenth-Vertical-Slice.md), [M10 검증 기록](32-Tenth-Slice-Validation.md)을 따른다. 첫 수동 실행은 유효한 `no_document_selected`로 끝나 two-source 목표를 통과하지 못했다. 선택 prompt/실제 모델 검증 보완 후 두 번째 수동 실행은 D1/D2 exact quote와 `grounded=true`, `partial`로 현 M9/M10 계약상 정상 two-source 성공이었다. 두 실행의 합성 데이터는 별도 정리 후 기존 DB baseline으로 복원됐다. `partial`은 의미적 완전성을 보증하지 않는다.
+
+**M11 계약 단계 — 미구현·미검증:** [Controlled Read-Only Capability Routing 계약](34-Eleventh-Vertical-Slice.md)은 기존 M3 Memory Query, M10 Project Document Auto Answer, 또는 `no_action` 중 하나만 선택하는 새 경계를 정의한다. 이 문서 작성은 M11 API·라우팅 코드·테스트·DB 변경이나 실제 실행 검증을 뜻하지 않는다.
 
 ## 완료된 기능과 구현 범위
 
@@ -102,7 +104,7 @@ M10의 **자동 합성 검증**에서는 20개 후보·UTF-8 byte 및 메시지 
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. LLM은 읽기 의도 제안과 근거 발췌에만 사용한다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E를 완료했고 GitHub 반영은 남아 있다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. 다음 M11은 [읽기 전용 Capability Routing의 구현 전 계약](34-Eleventh-Vertical-Slice.md)만 작성했으며 아직 구현·검증하지 않았다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 

@@ -229,6 +229,32 @@ provable durable state: **Unknown Outcome != Failed.** No new stored Task,
 Execution, or verification status is added. M4 keyed idempotency remains
 `memory.save`-only; M5 Recovery Triage does not inspect or recover M10.
 
+## M11 read-only routing boundary — proposed, not implemented
+
+The [M11 pre-implementation contract](../../01-Project/34-Eleventh-Vertical-Slice.md)
+proposes one authenticated request selecting either the existing M3 Memory
+Query, the existing M10 Project Document Auto Answer, or no action. The routing
+model proposes only a fixed allowlist choice. NOAH validates it and invokes at
+most one internal function; no new generic invocation runtime is implied.
+
+M11 creates no parent Task, Execution, or routing Evidence. A pre-delegation
+rejection or `no_action` creates none. If M3 is selected, its existing
+request-scoped result and verified in-response Memory quotes remain **without
+durable Task/Execution**. If M10 is selected, M10 alone owns its existing
+one Task/Execution pair and candidate/source/quote Evidence. No M3/M10 HTTP
+endpoint, Task, Execution, or Evidence is duplicated by the route. Existing
+permission checks, verification, and terminal transitions remain owned by the
+selected function; the router additionally withholds disclosure if current
+authorization is lost. A delegated failure or uncertain M10 result must not
+be converted into a routing success, fallback, or retry.
+
+There is no shared persistent decision record that joins an M11 route choice
+to both delegates. This is an explicit first-slice observability limitation,
+especially for M3 and `no_action`, and must be revisited before claiming
+durable multi-step orchestration. **Unknown Outcome != Failed** still applies
+to any delegated attempt. No new stored state values are proposed; M5 triage
+remains limited to `memory.save` and does not recover M11 or M10.
+
 ## Unknown outcome and idempotency
 
 **Unknown Outcome != Failed.** `running` means no final durable result has
