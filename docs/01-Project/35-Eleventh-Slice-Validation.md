@@ -3,8 +3,10 @@
 > Date: 2026-10-01 (Asia/Seoul).
 > Baseline: `d410debd1c7251376a63895895e2df93099916cd` on `main`.
 > Status: implementation, automated validation, and user manual HTTP E2E complete;
-> Git commit and push pending.
-> This record does not include a Git commit or push.
+> M11 was subsequently committed on `main` at
+> `b3f7200f1226414f13b6202ca2bfc3ef6d1c1205`.
+> The tests and manual observations below predate that commit; this record
+> does not claim that they were rerun afterward.
 
 ## Implemented boundary
 

@@ -1,6 +1,6 @@
 # M11 — Controlled Read-Only Capability Routing
 
-> Status: **implemented; automated and user manual HTTP E2E validated; Git commit/push pending**.
+> Status: **implemented; automated and user manual HTTP E2E validated; committed on `main` at `b3f7200f1226414f13b6202ca2bfc3ef6d1c1205`**.
 > Baseline: M10 `main` commit `12c28b4b9dca3a084f7a976b86f251ae7d3020e1`.
 > Architecture: [Runtime state](../02-Architecture/Runtime/State.md),
 > [DDR-001](../02-Architecture/Decisions/DDR-001-task-state-runtime-boundary.md),
@@ -27,7 +27,7 @@ explicit branches; there is no implemented common capability registry.
 
 ## Request and proposal
 
-Proposed new API: `POST /requests/route` with a bearer token and exactly these
+Implemented API: `POST /requests/route` with a bearer token and exactly these
 JSON fields:
 
 ```json
@@ -149,15 +149,15 @@ failure retains the delegate's HTTP status, failure code, category, message,
 `request_id`, and any Task/Execution IDs inside `result`, with
 `routing.outcome=selected` and `routing.stage=delegated`. The router must not fabricate
 new grounded text, promote `partial` to `supported`, or claim that M3 has
-durable Evidence. The exact field spelling of this small envelope is an M11
-contract for implementation, not a claim about an existing API.
+durable Evidence. The field spelling of this small envelope describes the
+implemented M11 API.
 
-There is **no common durable audit record for the M11 route decision**. A
-response can identify the selected branch, but after response loss an operator
-cannot necessarily reconstruct that decision, especially for M3 or
-`no_action`. Durable route correlation and parent/child execution structure
-need separate review before multi-step orchestration; they are not silently
-solved here.
+At the M11 baseline there is **no common durable audit record for the route
+decision**. A response can identify the selected branch, but after response
+loss an operator cannot necessarily reconstruct that decision, especially
+for M3 or `no_action`. The [M12 pre-implementation contract](37-Twelfth-Vertical-Slice.md)
+proposes bounded route correlation without a parent Task. It is not part of
+the implemented M11 validation or multi-step orchestration.
 
 ## Failure and unknown-outcome contract
 
@@ -212,9 +212,9 @@ existing local Ollama adapter's 60-second connection timeout and current
 model settings. Public synthetic Korean/English choices passed the opt-in
 actual-model test; this is not a universal routing-quality guarantee. The
 final Memory disclosure check reuses the current SQL visibility predicate and
-revalidates each bounded Evidence quote. Uniform durable routing audit and
-cross-capability request correlation remain deferred; if those become
-mandatory, the Task/Execution contract needs separate review.
+revalidates each bounded Evidence quote. Durable route audit and
+cross-capability request correlation were deferred at the M11 baseline;
+the proposed M12 scope is documented separately and is not yet implemented.
 
 ## Implementation and verification scope
 

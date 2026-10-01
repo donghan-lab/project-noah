@@ -4,10 +4,12 @@
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
 > execution, M7 restricted document read, M8 single-document answer, and M9
 > two-document answer, M10 controlled selection, and M11 read-only routing.
-> M10 and M11 use the existing
-> stored states and has no automatic recovery transition.
+> M10 uses existing stored states; M11 adds no Task/Execution state. Neither
+> has an automatic recovery transition.
 > M8 has its own Task/Execution and linked observation/answer evidence. This is
 > not the complete future Task or Runtime state machine.
+> [M12 routing audit](../../01-Project/37-Twelfth-Vertical-Slice.md) is a
+> **pre-implementation contract**, not part of the current stored schema.
 
 The implemented [M9 two-document contract](../../01-Project/29-Ninth-Vertical-Slice.md)
 does not change the stored Task/Execution state values or add an M9 recovery
@@ -255,6 +257,37 @@ especially for M3 and `no_action`, and must be revisited before claiming
 durable multi-step orchestration. **Unknown Outcome != Failed** still applies
 to any delegated attempt. No new stored state values are added; M5 triage
 remains limited to `memory.save` and does not recover M11 or M10.
+
+## M12 bounded routing audit — pre-implementation contract
+
+The [M12 contract](../../01-Project/37-Twelfth-Vertical-Slice.md) proposes
+one durable **routing audit** identity per eligible authenticated M11 request.
+This has not been implemented or validated. Audit is operational correlation,
+not canonical Task state, an Execution attempt, Capability Evidence, or proof
+that model selection was semantically correct. M3 remains without durable
+Task/Execution; M10 keeps exactly its own one pair and Evidence; `no_action`
+still invokes no Capability and creates no Task/Execution/Evidence, although
+M12 would add one routing audit row for that decision.
+
+After authentication, input/credential bounds, and any caller-supplied
+project read precheck, reserve the audit row in a short committed transaction
+**before** the routing model call. Preflight denials create no row. The
+proposed audit-only transitions are `reserved` → `route_validated` →
+`dispatch_prepared` → `observed`, with direct `observed` transitions for
+definite routing failure, `no_action`, or pre-delegate rejection.
+`dispatch_prepared` records a committed intention to call the delegate; it
+does not prove the call actually began. Persist the result observation only
+when NOAH has it. Do not hold a DB transaction across model or delegate work.
+These audit stages do **not** add DB Task/Execution/verification states.
+
+If audit reservation or a pre-delegate update is definitely or uncertainly
+unavailable, invoke no delegate. If final audit recording fails after an M3
+or M10 result, retain the delegate's actual status and result; report audit
+uncertainty separately and do not rewrite M10's committed state. A lost
+commit acknowledgement, process exit, `dispatch_prepared` row, or missing
+final update does not prove failure or license a retry. An M10 uncertain
+outcome remains uncertain. M5 Recovery Triage stays `memory.save`-only and
+does not recover routing audit or M10.
 
 ## Unknown outcome and idempotency
 
