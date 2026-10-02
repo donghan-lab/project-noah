@@ -12,7 +12,7 @@
 
 **현재 구현 기준선 — M11 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영 완료:** [Controlled Read-Only Capability Routing](34-Eleventh-Vertical-Slice.md)은 인증 후 로컬 모델이 기존 M3 Memory Query, M10 Project Document Auto Answer, 또는 `no_action` 중 하나만 제안하게 한다. NOAH가 제안을 검증하고 기존 내부 함수를 최대 한 번 호출한다. `main` 기준 커밋은 `b3f7200f1226414f13b6202ca2bfc3ef6d1c1205`이다. Compose PostgreSQL 17 전용·전체 회귀 및 실제 Ollama 선택 자동 검증과 별도 사용자 수동 HTTP E2E 결과는 [M11 검증 기록](35-Eleventh-Slice-Validation.md)에 구분했다. 합성 자료 cleanup 뒤 기존 DB counts/fingerprints와 named volume이 유지됐다.
 
-**현재 미커밋 구현 — M12 자동 검증 및 별도 사용자 수동 HTTP E2E 완료:** [Durable Read-Only Routing Audit and Correlation](37-Twelfth-Vertical-Slice.md)은 기존 M11 라우터의 eligible 요청에 서버 발급 `router_id`와 별도 영속 `noah.routing_audit` 행을 연결한다. M3/M10 실행 소유권은 유지하고 `no_action`은 Capability 실행 없이 감사 행만 1건 남긴다. 합성 Compose PostgreSQL 17 자동 검증, 기존 M1–M11 회귀, 별도 사용자 수동 HTTP E2E 결과는 [M12 검증 기록](38-Twelfth-Slice-Validation.md)에 구분했다. GitHub 반영은 아직 진행하지 않았다.
+**현재 구현 기준선 — M12 자동 검증·별도 사용자 수동 HTTP E2E·GitHub 반영 완료:** [Durable Read-Only Routing Audit and Correlation](37-Twelfth-Vertical-Slice.md)은 기존 M11 라우터의 eligible 요청에 서버 발급 `router_id`와 별도 영속 `noah.routing_audit` 행을 연결한다. M3/M10 실행 소유권은 유지하고 `no_action`은 Capability 실행 없이 감사 행만 1건 남긴다. 합성 Compose PostgreSQL 17 자동 검증, 기존 M1–M11 회귀, 별도 사용자 수동 HTTP E2E 결과는 [M12 검증 기록](38-Twelfth-Slice-Validation.md)에 구분했다. GitHub `main` 기준 커밋은 `199d9dffdb2d4c69e210ffc0ad6c3c8aed6d9b2d`이다.
 
 ## 완료된 기능과 구현 범위
 
@@ -116,7 +116,7 @@ M12의 **별도 사용자 수동 HTTP E2E**에서는 Memory·Document·No Action
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. LLM은 읽기 의도 제안과 근거 발췌에만 사용한다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M12 라우팅 감사·상관 ID는 로컬에서 구현·자동 및 사용자 수동 HTTP E2E 검증을 완료했으며 GitHub 반영은 남아 있다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M12 라우팅 감사·상관 ID도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 
