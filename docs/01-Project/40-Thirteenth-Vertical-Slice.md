@@ -1,6 +1,9 @@
 # M13 — Controlled Explicit Memory Save Routing
 
-> Status: pre-implementation contract; no M13 code, migration, test, or E2E result exists yet.
+> Status: implementation contract; M13 code and automated validation are now
+> recorded separately in [M13 validation](41-Thirteenth-Slice-Validation.md).
+> User manual HTTP E2E has been completed separately and is recorded in
+> [M13 validation](41-Thirteenth-Slice-Validation.md).
 > Baseline: `main@199d9dffdb2d4c69e210ffc0ad6c3c8aed6d9b2d`.
 > Existing boundaries: [M1 explicit save](13-First-Vertical-Slice.md), [M4 idempotency](19-Fourth-Vertical-Slice.md), [M5 read-only triage](21-Fifth-Vertical-Slice.md), [M11 read-only routing](34-Eleventh-Vertical-Slice.md), [M12 routing audit](37-Twelfth-Vertical-Slice.md), and [Runtime state](../02-Architecture/Runtime/State.md).
 
@@ -8,7 +11,7 @@
 
 Connect the already implemented `save_memory()` to the existing `POST /requests/route` boundary for **one explicitly supplied user-scope Memory**. The routing model proposes only `memory.save` or `no_action`; NOAH validates and, at most once, invokes the existing internal Python function. M1/M4 remain the owners of Memory, Task, Execution, and the write-key mapping. M12's separate operational audit records the router decision and verified correlation. This does not introduce another Memory writer, a parent Task, a generic dispatcher, or automatic recovery.
 
-The current M11/M12 route is read-only. This document defines a future, additive M13 branch; it does not describe `memory.save` routing as currently implemented or revise the historical M11/M12 validation results. The existing `POST /memories` contract and routes without `memory_save` remain unchanged.
+The historical M11/M12 route was read-only. This document defines the additive M13 branch; it does not revise the historical M11/M12 validation results. The existing `POST /memories` contract and routes without `memory_save` remain unchanged.
 
 ## API request and explicit authorization
 
@@ -110,7 +113,7 @@ After delegation, a definite failure or unknown acknowledgement of the final `ob
 
 Use a separate synthetic user/token and a unique public test Memory, never an existing personal Memory. First confirm the Compose PostgreSQL baseline, private row fingerprints, named volume, local-only dedicated Ollama, and an empty M13 test-owned set. Capture the exact request body and one client key without printing credentials. Send one explicit user-scope routed save; verify the routing choice, original M1 result, exact stored synthetic content, one M4 mapping, one M1 Task/Execution, and a separately correlated M12 audit row. Make a deliberate same-key/same-body replay only after the first response is captured, to verify original IDs and no second Memory; do not perform an automatic retry on unexpected results. A `no_action` control and one safe preflight failure can verify zero write delta.
 
-Use read-only DB checks to verify audit-to-execution ownership and to distinguish the current router ID from the original M4 request and Task IDs. After server shutdown and exact ownership checks, remove **only** synthetic user-owned records and confirm counts/private fingerprints return to their baseline. Do not delete existing users, Memories, Tasks, Executions, audit history, or Docker volumes. Record automated and manual results separately in a future M13 validation document; this document makes no claim that either has run.
+Use read-only DB checks to verify audit-to-execution ownership and to distinguish the current router ID from the original M4 request and Task IDs. After server shutdown and exact ownership checks, remove **only** synthetic user-owned records and confirm counts/private fingerprints return to their baseline. Do not delete existing users, Memories, Tasks, Executions, audit history, or Docker volumes. Automated and separately completed user manual HTTP E2E results are recorded in [M13 validation](41-Thirteenth-Slice-Validation.md).
 
 ## Explicit exclusions and documentation alignment
 
@@ -118,4 +121,4 @@ No model-derived Memory payload, project-scope write, Memory suppression/delete/
 
 The relevant Blueprint boundaries are [Task](../02-Architecture/Core/Task.md), [Agent](../02-Architecture/Core/Agent.md), [Identity](../02-Architecture/Core/Identity.md), [Runtime State](../02-Architecture/Runtime/State.md), [Harness](../02-Architecture/Runtime/Harness.md), and [Memory](../02-Architecture/Information/Memory.md). Accepted [DDR-001](../02-Architecture/Decisions/DDR-001-task-state-runtime-boundary.md), [DDR-002](../02-Architecture/Decisions/DDR-002-harness-boundary.md), [DDR-003](../02-Architecture/Decisions/DDR-003-memory-knowledge-boundary.md), [DDR-004](../02-Architecture/Decisions/DDR-004-artifact-architecture.md), [DDR-005](../02-Architecture/Decisions/DDR-005-identity-persistence.md), and [DDR-006](../02-Architecture/Decisions/DDR-006-orchestration-contract.md) remain in force; M13 does not replace their future-facing designs.
 
-**Status alignment:** [NOAH_DEV_STATUS.md](NOAH_DEV_STATUS.md) records M12 as implemented, validated, and reflected on GitHub `main` at `199d9dffdb2d4c69e210ffc0ad6c3c8aed6d9b2d`. M13 remains a pre-implementation contract, not an implemented capability.
+**Status alignment:** [NOAH_DEV_STATUS.md](NOAH_DEV_STATUS.md) records M12 as implemented, validated, and reflected on GitHub `main` at `199d9dffdb2d4c69e210ffc0ad6c3c8aed6d9b2d`. M13 implementation, automated validation, and user manual HTTP E2E are complete locally; GitHub review remains pending.

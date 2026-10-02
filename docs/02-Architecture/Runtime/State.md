@@ -1,6 +1,6 @@
 # NOAH State Contract — Current Memory Save and Tool Slices
 
-> Status: current implementation contract, 2026-10-01. This documents the
+> Status: current implementation contract, 2026-10-02. This documents the
 > Memory Write path, M5 read-only recovery triage, and M6 read-only Tool
 > execution, M7 restricted document read, M8 single-document answer, and M9
 > two-document answer, M10 controlled selection, and M11 read-only routing.
@@ -11,6 +11,9 @@
 > [M12 routing audit](../../01-Project/37-Twelfth-Vertical-Slice.md) is
 > implemented as separate operational metadata, with no new Task/Execution
 > status value. M12 user manual HTTP E2E has been completed separately.
+> [M13 explicit Memory Save routing](../../01-Project/40-Thirteenth-Vertical-Slice.md)
+> connects the existing write path to the router; it adds no Task/Execution
+> status value. Automated validation and separate manual HTTP E2E are complete.
 
 The implemented [M9 two-document contract](../../01-Project/29-Ninth-Vertical-Slice.md)
 does not change the stored Task/Execution state values or add an M9 recovery
@@ -293,6 +296,37 @@ commit acknowledgement, process exit, `dispatch_prepared` row, or missing
 final update does not prove failure or license a retry. An M10 uncertain
 outcome remains uncertain. M5 Recovery Triage stays `memory.save`-only and
 does not recover routing audit or M10.
+
+## M13 explicit Memory Save routing — implemented and manually validated
+
+For a request with an explicit `memory_save.content`, authentication, exact
+request shape, user-only target, content, routing question, and required
+`Idempotency-Key` are validated before any routing audit reservation. A
+preflight rejection creates no audit, model call, or delegated write record.
+The audit reservation must commit before local Ollama availability/binding
+checks or a routing model call. A model-stage failure may be recorded as an
+M12 routing failure but never starts `save_memory()` or creates a Memory,
+Task, Execution, or M4 key mapping. The write-branch model may propose only
+`memory.save` or `no_action`, and sees the question and a payload-present
+marker, not the stored content or key.
+
+A verified `memory.save` proposal requires a fresh token check, then committed
+`route_validated` and `dispatch_prepared` audit stages before the router calls
+the existing `save_memory()` internal function **once**. An uncertain audit
+reservation or pre-delegate update stops before the write. `dispatch_prepared`
+is an intention, not proof of invocation. The existing save path alone owns
+Memory insertion, its Task/Execution, M4 mapping, readback, and terminal state.
+The router adds no parent or duplicate Task/Execution. A valid `no_action`
+adds only its M12 operational audit row.
+
+After a returned save result, the router records only verified request and,
+where present, Task/Execution IDs in the separate audit. An M1 rejection
+Execution without a Task is not fabricated into an audit Task/Execution pair.
+The original M1/M4 HTTP result, including replay, conflict, pending, and
+`WRITE_OUTCOME_UNKNOWN`, remains authoritative. A failed final audit update
+marks `routing.audit_status=unconfirmed` without changing or retrying that
+result. The audit is not write-outcome evidence for M5; M5 remains read-only
+and `memory.save`-only. **Unknown Outcome != Failed.**
 
 ## Unknown outcome and idempotency
 

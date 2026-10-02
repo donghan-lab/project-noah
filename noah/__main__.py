@@ -78,8 +78,9 @@ class Handler(BaseHTTPRequestHandler):
                 auto_route.group(1), payload, token)
         else:
             operation = save_memory if path == "/memories" else query_memory
-        options = {"idempotency_key": self.headers.get("Idempotency-Key")} if path == "/memories" else {}
-        if path == "/memories" and len(self.headers.get_all("Idempotency-Key", [])) > 1:
+        options = ({"idempotency_key": self.headers.get("Idempotency-Key")}
+                   if path in {"/memories", "/requests/route"} else {})
+        if path in {"/memories", "/requests/route"} and len(self.headers.get_all("Idempotency-Key", [])) > 1:
             options["idempotency_key"] = ""
         try:
             length = int(self.headers.get("Content-Length", "0"))
