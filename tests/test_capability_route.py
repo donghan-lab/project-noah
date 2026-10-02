@@ -103,6 +103,8 @@ class CapabilityRouteTests(unittest.TestCase):
         if not cls.users:
             return
         with connect() as db:
+            db.execute("DELETE FROM noah.routing_audit WHERE actor_user_id = ANY(%s)",
+                       (cls.users,))
             for table in ("auto_document_quote_evidence", "auto_document_source_evidence",
                           "auto_document_answer_evidence"):
                 db.execute(f"DELETE FROM noah.{table} WHERE execution_id IN "

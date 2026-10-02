@@ -1,7 +1,7 @@
 # M12 — Durable Read-Only Routing Audit and Correlation
 
-> Status: **pre-implementation contract; not implemented or validated**.
-> Baseline: M11 `main` commit `b3f7200f1226414f13b6202ca2bfc3ef6d1c1205`.
+> Status: **implemented and automatically validated locally; separate user manual HTTP E2E completed; GitHub commit/push pending**.
+> Implementation baseline: `main` commit `00de2bd7a96bfd82312919b511f48500712086d9`.
 > Related: [M11 routing](34-Eleventh-Vertical-Slice.md),
 > [Runtime state](../02-Architecture/Runtime/State.md),
 > [DDR-001](../02-Architecture/Decisions/DDR-001-task-state-runtime-boundary.md),
@@ -191,15 +191,15 @@ automatic state repair for incomplete audit rows.
 
 ## Implementation and validation boundary
 
-A small additive, separate routing-audit table is expected. It preserves all
+M12 uses a small additive, separate routing-audit table. It preserves all
 existing data and does not alter `noah.tasks`, `noah.execution_records`, M3,
 or M10 Evidence semantics. This document defines column meanings and stage
-invariants, **not SQL**. The likely implementation changes are the router
+invariants, **not SQL**. The implemented changes are the router
 module, additive migration registration, a focused M12 test module, the M12
 validation/operator documents, Runtime state, and development status. The
-existing HTTP entry point need not change unless the minimal response
-envelope requires it. No new package, generic Registry, or public audit API
-is justified.
+existing HTTP entry point remained unchanged; the router adds the minimal
+response envelope. No new package, generic Registry, or public audit API
+was added.
 
 Automated tests must prove: preflight failures create zero audit/model/
 delegate calls; one distinct router ID per eligible request; one M3 call and
@@ -217,13 +217,13 @@ valid; any synthetic fixture cleanup or whole-DB snapshot assertion must be
 updated to account for, and remove only, the new M12 audit rows. Historical
 M11 zero-delta manual observations must not be rewritten as M12 results.
 
-An opt-in actual Ollama/manual HTTP E2E should use public synthetic data for
+The separate manual HTTP E2E used public synthetic data for
 one `memory.query`, one `project.documents.answer.auto`, and one `no_action`
-request. Verify the router ID and durable correlation separately from model
+request. It verified the router ID and durable correlation separately from model
 selection quality; M3 still has no Task/Execution, M10 still has exactly its
-one pair, and `no_action` has only the new routing audit metadata. Preserve
-existing user data and the PostgreSQL named volume, and verify exact baseline
-restoration after targeted cleanup.
+one pair, and `no_action` has only the new routing audit metadata. Existing
+user data and the PostgreSQL named volume were preserved; targeted cleanup
+restored the exact baseline.
 
 M12 is complete only after the bounded audit/ID linkage, failure and unknown
 outcome behavior, secret minimization, prior regression, real synthetic HTTP
@@ -231,14 +231,37 @@ verification, and cleanup have all been demonstrated. Completion does **not**
 mean multi-step orchestration, general tracing, M3 execution persistence, or
 automatic recovery is complete.
 
-## Implementation details still to settle
+## Implemented routing audit details
 
-The migration must choose exact column types, allowed-value constraints, and
-indexes for the bounded stages above. The implementation must also specify
-how an operator verifies an audit row without adding a public HTTP endpoint.
-Those choices may not broaden stored content, introduce a parent Task, or
-weaken the failure/uncertainty contract. Longer-term retention and privacy
-governance are deferred; M12 has no automatic deletion policy.
+The additive [`008_routing_audit.sql`](../../database/008_routing_audit.sql)
+creates `noah.routing_audit` with `router_id` as primary key, bounded stage,
+route, observation, HTTP status, outcome code, correlation UUIDs, timestamps,
+and an actor/time index. It stores no question, prompt, body, answer, token,
+token hash, credential, or machine path. The actor and delegate IDs have no
+new foreign keys, so audit retention does not change M3/M10 lifecycle or
+synthetic project deletion behavior. The router uses short committed writes
+for reservation and each transition. Each update requires the expected prior
+stage; a stale or backwards transition is a definite audit failure.
+
+An operator with read-only PostgreSQL access can inspect a row using the
+returned `router_id`, for example:
+
+```sql
+SELECT router_id, actor_user_id, stage, validated_route,
+       dispatch_prepared, delegate_result_observed, delegate_capability,
+       delegate_request_id, delegate_task_id, delegate_execution_id,
+       observation_class, http_status, outcome_code,
+       created_at, updated_at, observed_at
+FROM noah.routing_audit WHERE router_id = :router_id;
+```
+
+This is operational correlation, not a public audit endpoint or an execution
+verdict. A returned M10 Task/Execution link is recorded only after matching
+the actual Execution's request, Task, actor, and capability; an unverifiable
+link is omitted without rewriting the delegate's public result. See the
+[automated validation record](38-Twelfth-Slice-Validation.md). Longer-term
+retention and privacy governance remain deferred; M12 has no automatic
+deletion policy.
 
 ## Explicit exclusions
 
