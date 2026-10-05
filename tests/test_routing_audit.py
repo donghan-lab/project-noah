@@ -12,6 +12,7 @@ from noah.db import connect
 from noah.document_auto_query import answer_auto_documents
 from noah.document_read import read_document_with_identity
 from noah.document_tool import list_document_names
+from noah.memory_query import MemoryQueryResult
 from noah.ollama import OllamaInvalidResponse, OllamaTimeout, OllamaUnavailable
 from noah.routing_audit import AuditWriteError, RoutingAudit
 from noah.service import create_project, provision_user
@@ -157,8 +158,8 @@ class RoutingAuditTests(unittest.TestCase):
         before, called, m3_request = self.counts(), [], uuid4()
         def runner(*_args):
             called.append(1)
-            return 200, {"status": "succeeded", "request_id": str(m3_request),
-                         "outcome": "no_match", "evidence": [], "answer": "Synthetic no match"}
+            return 200, MemoryQueryResult({"status": "succeeded", "request_id": str(m3_request),
+                         "outcome": "no_match", "evidence": [], "answer": "Synthetic no match"})
         status, body = self.route(MEMORY_ROUTE, memory_runner=runner)
         row = self.row(body["router_id"])
         self.assertEqual((status, len(called), body["routing"]["audit_status"]), (200, 1, "recorded"))
@@ -267,8 +268,8 @@ class RoutingAuditTests(unittest.TestCase):
 
     def test_delegate_result_survives_final_audit_failure(self):
         request_id = uuid4()
-        result = {"status": "succeeded", "request_id": str(request_id),
-                  "outcome": "no_match", "evidence": [], "answer": "Synthetic no match"}
+        result = MemoryQueryResult({"status": "succeeded", "request_id": str(request_id),
+                  "outcome": "no_match", "evidence": [], "answer": "Synthetic no match"})
         for uncertain, after_commit, actual_stage in (
             (False, False, "dispatch_prepared"), (True, True, "observed")):
             called = []
@@ -300,9 +301,9 @@ class RoutingAuditTests(unittest.TestCase):
             with connect() as db:
                 db.execute("UPDATE noah.api_tokens SET revoked_at=now() WHERE user_id=%s",
                            (self.user,))
-            return 200, {"status": "succeeded", "request_id": str(uuid4()),
+            return 200, MemoryQueryResult({"status": "succeeded", "request_id": str(uuid4()),
                          "outcome": "grounded", "answer": "Synthetic held content",
-                         "evidence": []}
+                         "evidence": []})
         try:
             status, body = self.route(MEMORY_ROUTE, memory_runner=runner)
             row = self.row(body["router_id"])

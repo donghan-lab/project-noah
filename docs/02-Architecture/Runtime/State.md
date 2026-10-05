@@ -328,6 +328,36 @@ marks `routing.audit_status=unconfirmed` without changing or retrying that
 result. The audit is not write-outcome evidence for M5; M5 remains read-only
 and `memory.save`-only. **Unknown Outcome != Failed.**
 
+## M14 explicit user Memory suppression — implemented, automated validation
+
+`POST /memories/<id>/suppress` is a deterministic owner-only operation outside
+the Router and M12 audit. An authorized user-scope Memory remains durable, but
+`suppressed_at` changes once from null to a persisted timestamp. A first real
+transition creates one `memory.suppress` Task and Execution in the same short
+transaction as the conditional update. NOAH rechecks the original credential,
+owner, and scope, then reads the row back and verifies the unchanged original
+fields before committing `completed/passed` and `succeeded` with `memory_id`
+and `verified_at`. A repeat returns `already_suppressed` with the original
+timestamp and creates no new Task/Execution. No persistent intermediate
+`running` reservation or new DB status is introduced.
+
+Before the first commit, a provably rolled-back update or readback failure
+cannot leave a suppressed row or terminal Task/Execution. Lost commit
+acknowledgement yields `SUPPRESSION_OUTCOME_UNKNOWN`: the response does not
+claim success or a failed transition, return provisional Task/Execution IDs
+as durable, or trigger automatic retry. M5 triage remains `memory.save`-only;
+M4 save replay does not clear later suppression. M14 has no routing-audit row.
+
+M2 ordinary list and M3 search filter suppressed rows in SQL before cursor,
+ordering, limit, and model context. Owner direct lookup remains a management
+read of the retained row and reports its suppression state. M3 direct and M11
+routed Memory responses recheck every Memory actually sent to the model at
+their respective final public-disclosure boundaries. If any is no longer
+visible, they withhold the entire generated answer, citations, and search
+metadata. These ephemeral IDs create no audit or parent Task. An ordinary
+GET/list may still deliver a state observed before suppression committed.
+Separate operator manual HTTP E2E for M14 remains pending.
+
 ## Unknown outcome and idempotency
 
 **Unknown Outcome != Failed.** `running` means no final durable result has

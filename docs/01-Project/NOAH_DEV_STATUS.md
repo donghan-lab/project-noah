@@ -1,6 +1,6 @@
 # NOAH 개발 현황
 
-> 기준일: 2026-10-03 (Asia/Seoul)
+> 기준일: 2026-10-06 (Asia/Seoul)
 > 성격: 구현·검증 진행 상황의 요약. 기존 Blueprint와 Accepted DDR을 대체하거나 변경하지 않는다.
 > 첫 Slice 기준 커밋: `061dbea` — 인증된 PostgreSQL 메모 저장 구현. 이후 반영 상태는 Git 기록을 따른다.
 
@@ -16,7 +16,7 @@
 
 **현재 구현 기준선 — M13 자동 검증·사용자 수동 HTTP E2E·GitHub 반영 완료:** [Controlled Explicit Memory Save Routing](40-Thirteenth-Vertical-Slice.md)은 별도 `memory_save.content`와 필수 `Idempotency-Key`가 있는 요청에서만 기존 `/requests/route`의 제한된 `memory.save | no_action` 선택을 허용한다. NOAH는 본문을 모델에 보내지 않고 기존 `save_memory()`를 최대 한 번 내부 호출한다. M1/M4가 Memory·Task·Execution·키 매핑을 소유하며 M12 audit은 검증된 ID 연결만 맡는다. 합성 Compose PostgreSQL 17 자동·전체 회귀, 별도 실제 Ollama 선택, 사용자 수동 HTTP E2E 결과는 [M13 검증 기록](41-Thirteenth-Slice-Validation.md)에 구분했다. GitHub `main` 기준 커밋은 `083b3cb26576796a4edec7aa40d21d5e2c32adc9`이다.
 
-**다음 계약 초안 — M14 Controlled Memory Suppression (미구현·미검증):** [M14 계약](43-Fourteenth-Vertical-Slice.md)은 사용자가 직접 지정한 소유 user-scope Memory 한 건의 일반 retrieval만 억제하고 원본 row와 과거 실행 근거를 유지하는 최소 상태 변경을 정의한다. 구현, migration, 자동·수동 검증은 아직 시작하지 않았다.
+**현재 미커밋 구현 — M14 Controlled Memory Suppression, 자동 검증·운영자 수동 HTTP E2E 완료:** [M14 계약](43-Fourteenth-Vertical-Slice.md)에 따라 사용자가 직접 지정한 소유 user-scope Memory 한 건을 원본 row와 과거 실행 근거를 보존한 채 일반 retrieval에서 제외한다. nullable `suppressed_at`, 독립 `memory.suppress` Task/Execution, 단건 관리 조회, M2/M3 SQL 가시성 필터와 M3/M11 최종 공개 재검사를 구현했다. Compose PostgreSQL 17에서 M14 전용 11개 및 M1–M14 전체 167개(158 통과, opt-in 9개 건너뜀)를 검증했다. 2026-10-06 별도 수동 HTTP E2E에서 최초 억제와 검증 후 의도적 반복 요청을 각각 한 번 실행해 상태·Task/Execution·목록/검색 제외를 확인했고, 합성 행 정리 후 기존 18-table 행 수·비공개 지문·suppression 상태를 정확히 복원했다. [M14 자동 검증 기록](44-Fourteenth-Slice-Validation.md)과 [수동 결과](45-Fourteenth-Slice-Manual-Validation.md)를 구분한다. Git commit/Push는 아직 수행하지 않았다.
 
 ## 완료된 기능과 구현 범위
 
@@ -27,7 +27,9 @@
 - Task의 지속 상태와 실행 기록을 별도 테이블에 남긴다. 성공에는 메모 ID와 재조회 증거를, 거부·실패에는 구조화된 실패 코드를 반환한다.
 - `python -m noah recovery-report`는 Memory Write 영속 기록을 읽기 전용 스냅샷에서 점검한다. 검증 완료, 기록된 실패, 미종결 running, 기록 불일치를 분류하며 불확실한 결과는 실패로 단정하거나 재실행하지 않는다. 인증정보와 메모 본문은 보고하지 않는다.
 - `GET /memories/<id>`는 같은 범위 권한으로 저장된 메모를 조회한다.
+- `POST /memories/<id>/suppress`는 소유 user-scope Memory만 명시적으로 억제한다. 첫 상태 전이에만 검증된 `memory.suppress` Task/Execution 한 쌍을 원자적으로 기록하고 반복 요청에는 원래 timestamp를 유지한다. 삭제·복원·Router 연결은 없다.
 - `GET /memories`는 인증된 사용자가 읽을 수 있는 개인·프로젝트 메모만 반환한다. 프로젝트 소속 사용자는 쓰기 권한이 없어도 읽을 수 있다. 생성 시각과 ID의 역순 정렬 및 커서 페이지네이션을 제공한다.
+- M14 이후 모든 Memory 응답 객체는 `suppressed`/`suppressed_at`을 포함한다. 관리 목적 단건 조회는 억제된 원본을 소유자에게 보여주지만, 일반 목록·검색은 SQL에서 억제 메모를 제외한다. M3 직접 응답과 M11 routed M3는 모델에 전달된 모든 Memory ID를 사용자 공개 직전에 재검사한다.
 - `POST /memories/query`는 토큰 인증 후 로컬 Ollama가 제안한 읽기 의도와 질문의 단어를 검증한다. 기존 개인·프로젝트 조회 권한 필터를 공유하는 매개변수화 검색으로 최대 5건을 조회하고, 제한된 본문을 모델에 전달한다. 답변에는 실제 조회 결과의 ID와 원문이 일치하는 발췌만 사용한다. 빈 결과·근거 부족·검색 한도와 DB/모델 오류를 구분한다.
 - `POST /projects/<project_id>/documents/query`는 모델이 제안한 제한된 읽기 의도를 NOAH가 재검증하고, 실행 직전 프로젝트 소속을 재확인한다. 운영자만 관리하는 Git 제외 로컬 mapping의 문서 루트에서 직접 하위 일반 `.md` 파일명 최대 50개를 읽어 검증한다. Task·Execution 및 별도 Tool Evidence에 결과를 연결하고 본문이나 절대경로를 모델·API에 보내지 않는다.
 - `POST /projects/<project_id>/documents/read`는 정확한 `.md` 파일명 하나를 받아 권한을 재검사하고, Windows에서는 reparse point를 따라가지 않는 파일 핸들로 최대 65,536 원본 바이트를 읽는다. strict UTF-8/BOM을 검증하고 독립 재조회와 SHA-256을 대조한 뒤 별도 Document Evidence와 Task·Execution을 함께 확정한다. 본문은 API의 인증된 요청자에게만 반환하며 LLM에는 전달하지 않는다.
@@ -60,6 +62,8 @@
 | 기존 Docker Compose PostgreSQL 17 — M12 자동 검증 | 2026-10-01 | M12 전용 13개 통과; M1–M12 전체 146개 중 138개 통과·opt-in 8개 건너뜀, 실패·오류 0개 | 합성 사용자·프로젝트의 감사 단계·M3/M10 연결·`no_action`·확정/불확실 DB 실패·민감정보 비저장 및 M1–M11 회귀. M12 실제 모델 opt-in 자동 테스트는 별도로 수행하지 않음. [M12 기록](38-Twelfth-Slice-Validation.md) |
 | 기존 Docker Compose PostgreSQL 17 + 전용 로컬 Ollama — M12 사용자 수동 HTTP E2E | 결과 보고 2026-10-02 | Memory·Document·No Action 각 요청 1회 성공; API 재시도 없음 | M3 응답 ID와 audit 연결, M10 Task/Execution 한 쌍과 source-aware Evidence 연결, `no_action`의 audit 1건·delegate/Task/Execution/Evidence 0건 확인. 합성 cleanup 후 기존 DB counts/fingerprints 복원 및 named volume 유지. Document 실제 outcome은 `partial`. [수동 기록](39-Twelfth-Slice-Manual-Validation.md) |
 | 기존 Docker Compose PostgreSQL 17 — M13 자동 검증 | 2026-10-02 | M13 전용 기본 9개 통과·opt-in 1개 건너뜀; M1–M13 전체 156개 중 147개 통과·opt-in 9개 건너뜀, 실패·오류 0개 | 합성 사용자 쓰기·M4 replay/충돌·audit 연결 및 실패 경계, M1–M12 회귀. 실제 Ollama의 합성 한국어·영어 저장 선택과 `no_action`은 별도 opt-in 1개 통과. [M13 기록](41-Thirteenth-Slice-Validation.md) |
+| 기존 Docker Compose PostgreSQL 17 — M14 자동 검증 | 2026-10-05 | M14 전용 11개 통과; M1–M14 전체 167개 중 158개 통과·opt-in 9개 건너뜀, 실패·오류 0개 | 합성 데이터의 suppression 상태 전이·권한·가시성·불확실 결과와 기존 회귀. [M14 자동 기록](44-Fourteenth-Slice-Validation.md) |
+| 기존 Docker Compose PostgreSQL 17 — M14 사용자 수동 HTTP E2E | 2026-10-06 | 계획한 HTTP 6회 성공: 읽기 GET 4회, 첫 억제 POST 1회, 첫 결과 확정 후 의도적 반복 POST 1회 | 원본 유지, `suppressed`/`already_suppressed`, Task/Execution 한 쌍, 일반 목록·모델 없는 SQL 검색 제외 확인. 합성 5개 행만 한 트랜잭션에서 정리하고 기존 18-table counts·비공개 지문·suppression 상태를 정확히 복원; named volume·mapping·Git 상태 유지. Ollama는 실행하지 않음. [M14 수동 결과](45-Fourteenth-Slice-Manual-Validation.md) |
 
 M1 Compose 테스트는 실제 외래 키 위반에 따른 메모 쓰기 롤백과 실패 Task·실행 기록을 확인했다. M1의 재시작 검증은 HTTP 서버 인스턴스를 **같은 Python 프로세스에서** 종료·재생성한 것이고, M4는 별도 테스트에서 NOAH Python 서버 **프로세스 자체를** 종료·재시작한 뒤 동일 키 재요청을 확인했다. 자동 테스트용 행은 정리했다. 초기 7개 테이블에 M4 1개, M6 1개, M7 1개, M8 1개, M9 Evidence 3개, M10 Evidence 3개, M12 Routing Audit 1개가 추가되어, **현재 `noah` 스키마는 18개 테이블**이다. M6–M10 합성 검증 정리 후 관련 Evidence 테이블의 행은 각각 0건이지만 테이블은 유지된다. M12 수동 합성 Routing Audit 행도 정리했다. 기존 Compose 컨테이너와 named volume은 삭제하거나 초기화하지 않았다.
 
@@ -110,7 +114,7 @@ M13의 **별도 사용자 수동 HTTP E2E**에서는 공개 합성 user/token과
 - M10 후보 선택은 파일명만 보므로 관련 문서를 찾는 품질이나 질문에 대한 의미적 정답을 보증하지 않는다. 20개·파일명 JSON 1,024 UTF-8 bytes·selection 메시지 2,048 UTF-8 bytes 제한을 넘으면 일부만 모델에 보내지 않고 실패한다. 후보 관찰과 후속 파일 관찰은 같은 filesystem snapshot이 아니다. `grounded`는 인용이 관찰 원문과 일치함을 뜻하며 M5는 M10을 복구하지 않는다.
 - M11은 두 기존 읽기 기능 중 하나만 고른다. `memory.query`는 M11의 라우팅 식별자로 M3의 영속 Capability ID가 아니다. M11 검증 당시 공통 영속 감사 기록은 없었고, M12의 별도 Routing Audit은 그 기록의 일부 운영상 상관관계만 제공한다. M3에는 여전히 Task/Execution이 없고 M10은 자기 한 쌍만 만든다. 감사의 미종결 행이나 `dispatch_prepared`는 실제 위임 시작·성공·실패를 증명하지 않으며 자동 재시도를 허용하지 않는다. 실제 모델의 선택이 항상 의미상 옳다는 보증은 없고, 수동 E2E의 `partial`/exact quote도 질문의 의미적 완전성을 증명하지 않는다. 모델에 이미 전달된 Context는 이후 권한 회수 시 되돌릴 수 없지만 반환 직전 권한 상실은 공개를 차단한다.
 - HTTP API는 로컬호스트에만 바인딩한다. 원격 배포용 TLS, 운영 인증·권한 관리, 속도 제한은 범위 밖이다.
-- `noah init`은 첫 스키마와 M4·M6–M10·M12의 추가 테이블, M13의 기존 audit 허용 route 확장을 차례로 적용한다. 일반화된 마이그레이션 버전 관리·롤백 체계는 아직 없다.
+- `noah init`은 첫 스키마와 M4·M6–M10·M12의 추가 테이블, M13의 기존 audit 허용 route 확장, M14의 nullable `memories.suppressed_at`을 차례로 적용한다. 일반화된 마이그레이션 버전 관리·롤백 체계는 아직 없다.
 - `noah.users`는 인증된 사용자 Principal이며, DDR-005의 보호된 NOAH Identity Core 구현이 아니다.
 - 목록 커서는 페이지 위치를 표현하며 여러 요청에 걸친 고정 DB 스냅샷은 제공하지 않는다. 페이지 이동 중 메모 또는 프로젝트 소속이 바뀌면 이후 결과에 반영된다.
 - M1 개별 조회 `GET /memories/<id>`, M2 목록 조회 `GET /memories`, M3 자연어 조회 `POST /memories/query`는 Task·실행 기록을 새로 생성하지 않는다. M6·M7 읽기 전용 Tool은 실행 시작 전 Task·Execution을 생성하고 검증된 Evidence를 연결한다.
@@ -124,7 +128,7 @@ M13의 **별도 사용자 수동 HTTP E2E**에서는 공개 합성 user/token과
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. M13의 LLM은 명시적 쓰기 payload가 있는 요청에서 제한된 route만 제안하며 저장 본문을 만들거나 보지 않는다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M12 라우팅 감사·상관 ID도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M13의 구현·자동 검증·사용자 수동 HTTP E2E·GitHub 반영도 완료했다. M14는 suppression 계약 초안만 작성했으며 구현·검증하지 않았다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M12 라우팅 감사·상관 ID도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M13의 구현·자동 검증·사용자 수동 HTTP E2E·GitHub 반영도 완료했다. M14 suppression 구현·자동 검증·별도 사용자 수동 HTTP E2E와 합성 데이터 정리를 완료했으며 Git 반영은 대기 중이다. 이번 수동 실행은 M3/M11 공개 시점의 경쟁 상황이나 commit 불확실성을 재현하지 않았다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 

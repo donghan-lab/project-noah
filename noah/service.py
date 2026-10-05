@@ -91,15 +91,37 @@ def _memory_result(row):
         "owner_user_id": str(row["owner_user_id"]) if row["owner_user_id"] else None,
         "project_id": str(row["project_id"]) if row["project_id"] else None,
         "created_at": row["created_at"].isoformat(),
+        "suppressed": row["suppressed_at"] is not None,
+        "suppressed_at": row["suppressed_at"].isoformat() if row["suppressed_at"] else None,
     }
 
 
 def _readable_memory_filter(actor):
     """The same user/project visibility rule for listing and word search."""
-    return """((m.scope = 'user' AND m.owner_user_id = %s)
+    return """m.suppressed_at IS NULL AND ((m.scope = 'user' AND m.owner_user_id = %s)
         OR (m.scope = 'project' AND EXISTS (
             SELECT 1 FROM noah.project_memberships membership
             WHERE membership.project_id = m.project_id AND membership.user_id = %s)))""", [actor, actor]
+
+
+def _visible_memory_context(connection, actor, token, memory_ids):
+    """Recheck every model-input Memory in one DB observation; keep content ephemeral."""
+    if _actor_for_token(connection, token) != actor:
+        return "UNAUTHENTICATED", {}
+    try:
+        ids = tuple(UUID(str(value)) for value in memory_ids)
+    except (TypeError, ValueError, AttributeError):
+        return "MEMORY_CONTEXT_STALE", {}
+    if len(set(ids)) != len(ids):
+        return "MEMORY_CONTEXT_STALE", {}
+    if not ids:
+        return None, {}
+    visibility, params = _readable_memory_filter(actor)
+    rows = connection.execute("SELECT m.id,m.content FROM noah.memories m "
+        "WHERE m.id = ANY(%s) AND " + visibility, [list(ids), *params]).fetchall()
+    if len(rows) != len(ids):
+        return "MEMORY_CONTEXT_STALE", {}
+    return None, {str(row["id"]): row["content"] for row in rows}
 
 
 def _list_options(query):
@@ -168,7 +190,7 @@ def _audit_db_failure(request_id, task_id=None, code="DATABASE_UNAVAILABLE"):
                 "at": datetime.now(timezone.utc).isoformat(),
                 "request_id": str(request_id),
                 "task_id": str(task_id) if task_id else None,
-                "status": "unknown" if code == "WRITE_OUTCOME_UNKNOWN" else "failed",
+                "status": "unknown" if code.endswith("_OUTCOME_UNKNOWN") else "failed",
                 "category": "Environment Failure",
                 "code": code,
             }) + "\n")
@@ -355,7 +377,7 @@ def read_memory(memory_id, token, connection_factory=connect):
             if not actor:
                 return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401, "Authentication required")
             row = connection.execute(
-                "SELECT id, owner_user_id, project_id, scope, content, created_at FROM noah.memories WHERE id = %s",
+                "SELECT id, owner_user_id, project_id, scope, content, created_at, suppressed_at FROM noah.memories WHERE id = %s",
                 (parsed_id,),
             ).fetchone()
             if not row or not _authorized(connection, actor, row["scope"], row["owner_user_id"], row["project_id"], write=False):
@@ -379,7 +401,7 @@ def list_memories(token, query="", connection_factory=connect):
             except RequestFailure as error:
                 return _failure(request_id, error.code, error.category, error.http_status, str(error))
             visibility, params = _readable_memory_filter(actor)
-            sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at
+            sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at, m.suppressed_at
                 FROM noah.memories m WHERE """ + visibility
             if scope:
                 sql += " AND m.scope = %s"
@@ -409,7 +431,7 @@ def search_memories(token, scope, terms, request_id, connection_factory=connect,
             if not actor:
                 return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401, "Authentication required")
             visibility, params = _readable_memory_filter(actor)
-            sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at
+            sql = """SELECT m.id, m.owner_user_id, m.project_id, m.scope, m.content, m.created_at, m.suppressed_at
                 FROM noah.memories m WHERE """ + visibility
             if scope != "all":
                 sql += " AND m.scope = %s"

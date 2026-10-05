@@ -23,7 +23,7 @@ from noah.db import connect
 from noah.document_auto_query import answer_auto_documents
 from noah.document_read import read_document_with_identity
 from noah.document_tool import list_document_names
-from noah.memory_query import query_memory
+from noah.memory_query import MemoryQueryResult, query_memory
 from noah.ollama import (
     OllamaClient, OllamaInvalidResponse, OllamaTimeout, OllamaUnavailable,
     OllamaUnsafeBinding,
@@ -259,9 +259,9 @@ class CapabilityRouteTests(unittest.TestCase):
             with connect() as db:
                 db.execute("UPDATE noah.api_tokens SET revoked_at=now() WHERE user_id=%s",
                            (self.owner,))
-            return 200, {"status": "succeeded", "evidence": [
+            return 200, MemoryQueryResult({"status": "succeeded", "evidence": [
                 {"memory_id": str(self.private_memory), "quote": "Orion lantern"}],
-                "answer": "Orion lantern"}
+                "answer": "Orion lantern"}, model_input_ids=(str(self.private_memory),))
         status, body = self.route(memory_runner=runner)
         self.assertEqual((status, body["failure"]["code"], body["result"]),
                          (401, "UNAUTHENTICATED", None))
@@ -272,12 +272,12 @@ class CapabilityRouteTests(unittest.TestCase):
             with connect() as db:
                 db.execute("DELETE FROM noah.project_memberships WHERE project_id=%s AND user_id=%s",
                            (self.project, self.reader))
-            return 200, {"status": "succeeded", "evidence": [
+            return 200, MemoryQueryResult({"status": "succeeded", "evidence": [
                 {"memory_id": str(self.project_memory), "quote": "Orion project"}],
-                "answer": "Orion project"}
+                "answer": "Orion project"}, model_input_ids=(str(self.project_memory),))
         status, body = self.route(token=self.reader_token, memory_runner=runner)
         self.assertEqual((status, body["failure"]["code"], body["result"]),
-                         (404, "MEMORY_NOT_FOUND", None))
+                         (409, "MEMORY_CONTEXT_STALE", None))
         self.assertNotIn("Orion project", str(body))
 
     def test_project_revoked_during_routing_prevents_document_dispatch(self):

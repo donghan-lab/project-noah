@@ -13,12 +13,12 @@ from .document_auto import CAPABILITY as DOCUMENT_CAPABILITY
 from .document_auto_query import answer_auto_documents
 from .document_query import _project_readable
 from .document_tool import ToolFailure
-from .memory_query import query_memory
+from .memory_query import MemoryQueryResult, query_memory
 from .ollama import (
     OllamaClient, OllamaInvalidResponse, OllamaTimeout, OllamaUnavailable,
     OllamaUnsafeBinding,
 )
-from .service import (_actor_for_token, _failure, _readable_memory_filter,
+from .service import (_actor_for_token, _failure, _visible_memory_context,
                       _write_fingerprint, save_memory)
 from .routing_audit import AuditWriteError, RoutingAudit, safe_code
 
@@ -119,15 +119,18 @@ def _save_route_choice(proposal):
 
 
 def _memory_disclosure(connection_factory, actor, token, result):
-    """Recheck M3 evidence with the existing visibility predicate before HTTP disclosure."""
+    """Recheck every model-input Memory and each quote before routed disclosure."""
+    if not isinstance(result, MemoryQueryResult):
+        return "EVIDENCE_INVALID"
     try:
         with connection_factory() as db:
-            if _actor_for_token(db, token) != actor:
-                return "UNAUTHENTICATED"
+            visibility_failure, visible = _visible_memory_context(
+                db, actor, token, result.model_input_ids)
+            if visibility_failure:
+                return visibility_failure
             evidence = result.get("evidence", [])
             if not isinstance(evidence, list) or len(evidence) > 3:
                 return "EVIDENCE_INVALID"
-            visibility, params = _readable_memory_filter(actor)
             for item in evidence:
                 if (not isinstance(item, dict) or set(item) != {"memory_id", "quote"}
                         or not isinstance(item["quote"], str)):
@@ -136,11 +139,8 @@ def _memory_disclosure(connection_factory, actor, token, result):
                     memory_id = UUID(item["memory_id"])
                 except (KeyError, TypeError, ValueError, AttributeError):
                     return "EVIDENCE_INVALID"
-                row = db.execute("SELECT m.content FROM noah.memories m WHERE m.id=%s AND "
-                                 + visibility, [memory_id, *params]).fetchone()
-                if row is None:
-                    return "MEMORY_NOT_FOUND"
-                if item["quote"] not in row["content"]:
+                content = visible.get(str(memory_id))
+                if content is None or item["quote"] not in content:
                     return "EVIDENCE_INVALID"
     except (psycopg.Error, OSError, ValueError):
         return "DATABASE_UNAVAILABLE"
@@ -488,33 +488,36 @@ def route_read_request(payload, token, connection_factory=connect, model=None,
     if route == MEMORY_ROUTE:
         runner = memory_runner if memory_runner is not None else query_memory
         status, result = runner({"question": question}, token)
-        if status == 200:
-            disclosure_failure = _memory_disclosure(connection_factory, actor, token, result)
-            if disclosure_failure:
-                details = {
-                    "UNAUTHENTICATED": ("Permission Denied", 401, "Authentication required"),
-                    "MEMORY_NOT_FOUND": ("Permission Denied", 404, "Memory not found"),
-                    "EVIDENCE_INVALID": ("Verification Failure", 502, "Memory evidence is invalid"),
-                    "DATABASE_UNAVAILABLE": ("Environment Failure", 503, "Storage is unavailable"),
-                }
-                category, http_status, message = details[disclosure_failure]
-                response = _failure_envelope(request_id, disclosure_failure, category, http_status,
-                    message, stage="delegated", capability=MEMORY_ROUTE)
-                observation_class = "disclosure_denied"
     else:
         runner = document_runner if document_runner is not None else answer_auto_documents
         status, result = runner(str(project), {"question": question}, token)
 
-    if observation_class != "disclosure_denied":
-        response = status, {"status": result["status"],
-            "routing": {"outcome": "selected", "capability": route, "stage": "delegated"},
-            "result": result}
     delegate_request, delegate_task, delegate_execution, correlation_ok = (
         _delegate_correlation(connection_factory, route, actor, result))
     if not correlation_ok:
         observation_class = "correlation_unverified"
     elif _result_code(result) == "TOOL_OUTCOME_UNKNOWN":
         observation_class = "delegate_uncertain"
+    # Keep the M11 Memory visibility check after correlation, as close as
+    # possible to the terminal audit and public HTTP response.
+    disclosure_failure = (_memory_disclosure(connection_factory, actor, token, result)
+                          if route == MEMORY_ROUTE and status == 200 else None)
+    if disclosure_failure:
+        details = {
+            "UNAUTHENTICATED": ("Permission Denied", 401, "Authentication required"),
+            "MEMORY_CONTEXT_STALE": ("Verification Failure", 409,
+                                     "Memory context changed before disclosure"),
+            "EVIDENCE_INVALID": ("Verification Failure", 502, "Memory evidence is invalid"),
+            "DATABASE_UNAVAILABLE": ("Environment Failure", 503, "Storage is unavailable"),
+        }
+        category, http_status, message = details[disclosure_failure]
+        response = _failure_envelope(request_id, disclosure_failure, category, http_status,
+            message, stage="delegated", capability=MEMORY_ROUTE)
+        observation_class = "disclosure_denied"
+    else:
+        response = status, {"status": result["status"],
+            "routing": {"outcome": "selected", "capability": route, "stage": "delegated"},
+            "result": result}
     try:
         audit.observed(request_id, "dispatch_prepared", observation_class, response[0],
             response[1]["failure"]["code"] if observation_class == "disclosure_denied"

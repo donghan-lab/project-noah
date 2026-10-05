@@ -16,6 +16,7 @@ from .document_selected_query import answer_selected_documents
 from .document_auto_query import answer_auto_documents
 from .document_read_query import read_project_document
 from .memory_query import query_memory
+from .memory_suppression import suppress_memory
 from .recovery import triage_memory_writes
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
 
@@ -54,13 +55,18 @@ class Handler(BaseHTTPRequestHandler):
         answer_route = re.fullmatch(r"/projects/([^/]+)/documents/answer", path)
         selected_route = re.fullmatch(r"/projects/([^/]+)/documents/answer-selected", path)
         auto_route = re.fullmatch(r"/projects/([^/]+)/documents/answer-auto", path)
+        suppress_route = re.fullmatch(r"/memories/([^/]+)/suppress", path)
         if parsed.query or (path not in {"/memories", "/memories/query", "/requests/route"}
                             and not project_route and not read_route
-                            and not answer_route and not selected_route and not auto_route):
+                            and not answer_route and not selected_route and not auto_route
+                            and not suppress_route):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
         if path == "/requests/route":
             operation = route_read_request
+        elif suppress_route:
+            operation = lambda payload, token, **_options: suppress_memory(
+                suppress_route.group(1), payload, token)
         elif project_route:
             operation = lambda payload, token, **_options: query_project_documents(
                 project_route.group(1), payload, token)

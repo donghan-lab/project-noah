@@ -1,6 +1,7 @@
 # M14 — Controlled Memory Suppression (pre-implementation contract)
 
-> Status: contract draft; **not implemented or validated**. Baseline: M13 on
+> Status: implemented and automatically validated on Compose PostgreSQL 17;
+> **separate operator manual HTTP E2E remains pending**. Baseline: M13 on
 > `main` at `083b3cb26576796a4edec7aa40d21d5e2c32adc9` (2026-10-03).
 > This document narrows the existing [Memory Blueprint](../02-Architecture/Information/Memory.md)
 > and Accepted DDR-001–006 for one user-controlled operation. It does not change
@@ -246,9 +247,9 @@ read-only DB verification of the retained row and one M14 Task/Execution, then
 targeted cleanup of only synthetic records. Verify baseline row counts and
 private fingerprints before/after. Do not suppress a real personal Memory,
 delete an existing row, inject unknown outcomes into the live DB, or clear a
-Docker volume. M14 is complete only after implementation, automated tests,
-actual HTTP/Compose verification, and separately recorded results; none has
-occurred merely by writing this contract.
+Docker volume. The implementation and automated HTTP/Compose tests are
+recorded in [M14 validation](44-Fourteenth-Slice-Validation.md). Separate
+operator manual HTTP E2E and its results are still pending.
 
 ## Explicit exclusions and architecture relationship
 

@@ -11,7 +11,16 @@ from .ollama import (
     OllamaClient, OllamaInvalidResponse, OllamaTimeout, OllamaUnavailable,
     OllamaUnsafeBinding,
 )
-from .service import _actor_for_token, _audit_db_failure, _failure, search_memories
+from .service import (_actor_for_token, _audit_db_failure, _failure,
+                      _visible_memory_context, search_memories)
+
+
+class MemoryQueryResult(dict):
+    """Public M3 fields plus ephemeral model-input IDs for final disclosure."""
+
+    def __init__(self, *args, model_input_ids=(), **kwargs):
+        super().__init__(*args, **kwargs)
+        self.model_input_ids = tuple(model_input_ids)
 
 
 INTENT_SCHEMA = {
@@ -124,7 +133,8 @@ def query_memory(payload, token, connection_factory=connect, model=None):
     # Authenticate before sending even the question to the model.
     try:
         with connection_factory() as connection:
-            if not _actor_for_token(connection, token):
+            actor = _actor_for_token(connection, token)
+            if not actor:
                 return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401,
                     "Authentication required")
     except (psycopg.Error, OSError, ValueError):
@@ -160,12 +170,22 @@ def query_memory(payload, token, connection_factory=connect, model=None):
         return status, result
     memories = result["memories"]
     if not memories:
-        return 200, {
+        try:
+            with connection_factory() as connection:
+                visibility_failure, _ = _visible_memory_context(
+                    connection, actor, token, ())
+        except (psycopg.Error, OSError, ValueError):
+            return _failure(request_id, "DATABASE_UNAVAILABLE", "Environment Failure", 503,
+                "Storage is unavailable")
+        if visibility_failure:
+            return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401,
+                "Authentication required")
+        return 200, MemoryQueryResult({
             "status": "succeeded", "request_id": str(request_id),
             "outcome": "no_match", "answer": "허용된 메모에서 요청 단어와 일치하는 항목을 찾지 못했습니다.",
             "evidence": [], "scope": intent["scope"], "search_terms": list(terms),
             "examined": 0, "truncated": False,
-        }
+        })
 
     snippets = [{"id": memory["id"], "content": _snippet(memory["content"], terms)}
         for memory in memories]
@@ -182,6 +202,21 @@ def query_memory(payload, token, connection_factory=connect, model=None):
         return _failure(request_id, "EVIDENCE_INVALID", "Verification Failure", 502,
             "Model evidence could not be verified against authorized memories")
 
+    model_input_ids = tuple(item["id"] for item in snippets)
+    try:
+        with connection_factory() as connection:
+            visibility_failure, _ = _visible_memory_context(
+                connection, actor, token, model_input_ids)
+    except (psycopg.Error, OSError, ValueError):
+        return _failure(request_id, "DATABASE_UNAVAILABLE", "Environment Failure", 503,
+            "Storage is unavailable")
+    if visibility_failure == "UNAUTHENTICATED":
+        return _failure(request_id, "UNAUTHENTICATED", "Permission Denied", 401,
+            "Authentication required")
+    if visibility_failure:
+        return _failure(request_id, "MEMORY_CONTEXT_STALE", "Verification Failure", 409,
+            "Memory context changed before disclosure")
+
     if evidence:
         answer = "메모에 기록된 내용: " + " / ".join(item["quote"] for item in evidence)
         outcome = "grounded"
@@ -190,9 +225,9 @@ def query_memory(payload, token, connection_factory=connect, model=None):
         outcome = "insufficient_evidence"
     if result["truncated"]:
         answer += " 검색 한도 밖에 추가 일치 메모가 있을 수 있습니다."
-    return 200, {
+    return 200, MemoryQueryResult({
         "status": "succeeded", "request_id": str(request_id),
         "outcome": outcome, "answer": answer, "evidence": evidence,
         "scope": intent["scope"], "search_terms": list(terms),
         "examined": len(memories), "truncated": result["truncated"],
-    }
+    }, model_input_ids=model_input_ids)
