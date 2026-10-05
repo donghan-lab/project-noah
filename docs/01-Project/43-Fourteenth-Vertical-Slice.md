@@ -1,7 +1,7 @@
 # M14 — Controlled Memory Suppression (pre-implementation contract)
 
 > Status: implemented and automatically validated on Compose PostgreSQL 17;
-> **separate operator manual HTTP E2E remains pending**. Baseline: M13 on
+> separate operator manual HTTP E2E completed on 2026-10-06. Baseline: M13 on
 > `main` at `083b3cb26576796a4edec7aa40d21d5e2c32adc9` (2026-10-03).
 > This document narrows the existing [Memory Blueprint](../02-Architecture/Information/Memory.md)
 > and Accepted DDR-001–006 for one user-controlled operation. It does not change
@@ -241,15 +241,15 @@ the answer nor quotes/search metadata may be returned after the final
 full-context visibility check denies it. Also cover a GET/list read observed
 before commit but delivered afterward without treating it as an M3 guarantee.
 
-For a later **separate** manual E2E, use a synthetic owner and Memory, one
+The **separate** manual E2E plan uses a synthetic owner and Memory, one
 explicit suppress request, owner direct lookup, ordinary list/query absence,
 read-only DB verification of the retained row and one M14 Task/Execution, then
 targeted cleanup of only synthetic records. Verify baseline row counts and
 private fingerprints before/after. Do not suppress a real personal Memory,
 delete an existing row, inject unknown outcomes into the live DB, or clear a
 Docker volume. The implementation and automated HTTP/Compose tests are
-recorded in [M14 validation](44-Fourteenth-Slice-Validation.md). Separate
-operator manual HTTP E2E and its results are still pending.
+recorded in [M14 validation](44-Fourteenth-Slice-Validation.md). The completed
+operator manual HTTP E2E is recorded separately in [M14 manual validation](45-Fourteenth-Slice-Manual-Validation.md).
 
 ## Explicit exclusions and architecture relationship
 

@@ -328,7 +328,7 @@ marks `routing.audit_status=unconfirmed` without changing or retrying that
 result. The audit is not write-outcome evidence for M5; M5 remains read-only
 and `memory.save`-only. **Unknown Outcome != Failed.**
 
-## M14 explicit user Memory suppression — implemented, automated validation
+## M14 explicit user Memory suppression — implemented, automated and manual validation
 
 `POST /memories/<id>/suppress` is a deterministic owner-only operation outside
 the Router and M12 audit. An authorized user-scope Memory remains durable, but
@@ -356,7 +356,7 @@ their respective final public-disclosure boundaries. If any is no longer
 visible, they withhold the entire generated answer, citations, and search
 metadata. These ephemeral IDs create no audit or parent Task. An ordinary
 GET/list may still deliver a state observed before suppression committed.
-Separate operator manual HTTP E2E for M14 remains pending.
+Separate operator manual HTTP E2E for M14 completed on 2026-10-06.
 
 ## Unknown outcome and idempotency
 
