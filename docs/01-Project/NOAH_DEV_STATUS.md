@@ -1,6 +1,6 @@
 # NOAH 개발 현황
 
-> 기준일: 2026-10-02 (Asia/Seoul)
+> 기준일: 2026-10-03 (Asia/Seoul)
 > 성격: 구현·검증 진행 상황의 요약. 기존 Blueprint와 Accepted DDR을 대체하거나 변경하지 않는다.
 > 첫 Slice 기준 커밋: `061dbea` — 인증된 PostgreSQL 메모 저장 구현. 이후 반영 상태는 Git 기록을 따른다.
 
@@ -14,7 +14,9 @@
 
 **현재 구현 기준선 — M12 자동 검증·별도 사용자 수동 HTTP E2E·GitHub 반영 완료:** [Durable Read-Only Routing Audit and Correlation](37-Twelfth-Vertical-Slice.md)은 기존 M11 라우터의 eligible 요청에 서버 발급 `router_id`와 별도 영속 `noah.routing_audit` 행을 연결한다. M3/M10 실행 소유권은 유지하고 `no_action`은 Capability 실행 없이 감사 행만 1건 남긴다. 합성 Compose PostgreSQL 17 자동 검증, 기존 M1–M11 회귀, 별도 사용자 수동 HTTP E2E 결과는 [M12 검증 기록](38-Twelfth-Slice-Validation.md)에 구분했다. GitHub `main` 기준 커밋은 `199d9dffdb2d4c69e210ffc0ad6c3c8aed6d9b2d`이다.
 
-**현재 미커밋 구현 — M13 자동 검증 및 사용자 수동 HTTP E2E 완료, GitHub 반영 대기:** [Controlled Explicit Memory Save Routing](40-Thirteenth-Vertical-Slice.md)은 별도 `memory_save.content`와 필수 `Idempotency-Key`가 있는 요청에서만 기존 `/requests/route`의 제한된 `memory.save | no_action` 선택을 허용한다. NOAH는 본문을 모델에 보내지 않고 기존 `save_memory()`를 최대 한 번 내부 호출한다. M1/M4가 Memory·Task·Execution·키 매핑을 소유하며 M12 audit은 검증된 ID 연결만 맡는다. 합성 Compose PostgreSQL 17 자동·전체 회귀, 별도 실제 Ollama 선택, 사용자 수동 HTTP E2E 결과는 [M13 검증 기록](41-Thirteenth-Slice-Validation.md)에 구분했다. M13은 아직 커밋·Push하지 않았다.
+**현재 구현 기준선 — M13 자동 검증·사용자 수동 HTTP E2E·GitHub 반영 완료:** [Controlled Explicit Memory Save Routing](40-Thirteenth-Vertical-Slice.md)은 별도 `memory_save.content`와 필수 `Idempotency-Key`가 있는 요청에서만 기존 `/requests/route`의 제한된 `memory.save | no_action` 선택을 허용한다. NOAH는 본문을 모델에 보내지 않고 기존 `save_memory()`를 최대 한 번 내부 호출한다. M1/M4가 Memory·Task·Execution·키 매핑을 소유하며 M12 audit은 검증된 ID 연결만 맡는다. 합성 Compose PostgreSQL 17 자동·전체 회귀, 별도 실제 Ollama 선택, 사용자 수동 HTTP E2E 결과는 [M13 검증 기록](41-Thirteenth-Slice-Validation.md)에 구분했다. GitHub `main` 기준 커밋은 `083b3cb26576796a4edec7aa40d21d5e2c32adc9`이다.
+
+**다음 계약 초안 — M14 Controlled Memory Suppression (미구현·미검증):** [M14 계약](43-Fourteenth-Vertical-Slice.md)은 사용자가 직접 지정한 소유 user-scope Memory 한 건의 일반 retrieval만 억제하고 원본 row와 과거 실행 근거를 유지하는 최소 상태 변경을 정의한다. 구현, migration, 자동·수동 검증은 아직 시작하지 않았다.
 
 ## 완료된 기능과 구현 범위
 
@@ -122,7 +124,7 @@ M13의 **별도 사용자 수동 HTTP E2E**에서는 공개 합성 user/token과
 
 이번 Slice에는 멀티에이전트, 자율적 Task 생성, 자기 수정, 장기 기억 자동 추출, 벡터 검색, n8n 연동, 대규모 프론트엔드 및 새 Agent Framework가 포함되지 않는다. M13의 LLM은 명시적 쓰기 payload가 있는 요청에서 제한된 route만 제안하며 저장 본문을 만들거나 보지 않는다. Artifact·Knowledge·Identity Core의 전체 영속화도 구현하지 않았다.
 
-M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M12 라우팅 감사·상관 ID도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M13의 구현·자동 검증·사용자 수동 HTTP E2E를 완료했으며 Git 커밋과 Push는 대기 중이다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
+M10의 구현·보완된 자동 검증·사용자 수동 two-source grounded E2E 및 GitHub 반영을 완료했다. M11 읽기 전용 Capability Routing도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M12 라우팅 감사·상관 ID도 구현·자동 및 사용자 수동 HTTP E2E 검증·GitHub 반영을 완료했다. M13의 구현·자동 검증·사용자 수동 HTTP E2E·GitHub 반영도 완료했다. M14는 suppression 계약 초안만 작성했으며 구현·검증하지 않았다. 자유 형식 요약, Memory 결합, 광범위한 자동 검색 및 3개 이상 문서는 여전히 범위 밖이다. M5 후속 안전 복구 계약, M6–M10 Tool의 same-user 로컬 경로 교체 공격 대응, 정상 서버 종료 처리, 사용자 주도 메모 삭제도 별도 후보이다. 모델의 CPU/GPU 운용 및 성능 비교와 기존 `11434` Ollama 서비스의 네트워크 노출도 후속 검토 항목이다. 다른 프로젝트의 원격 사용 여부 확인 없이 전역 설정을 변경하지 않는다.
 
 ## 아키텍처 기준선
 
