@@ -358,6 +358,37 @@ metadata. These ephemeral IDs create no audit or parent Task. An ordinary
 GET/list may still deliver a state observed before suppression committed.
 Separate operator manual HTTP E2E for M14 completed on 2026-10-06.
 
+## M15 explicit suppression routing — implemented and validated
+
+For a `memory_suppress` request, authentication, exact request shape, question,
+and caller-supplied UUID syntax are checked before a routing audit reservation.
+The model receives only the question and a fixed payload-present marker added
+by NOAH; it may propose `memory.suppress` or `no_action` for this request shape.
+It cannot select or authorize the target. A confirmed `no_action` produces only
+an M12 operational audit row and never reads the target or starts M14.
+
+After durable reservation, model failure is a routing failure with no delegate
+work. A selected route requires the original token to still identify the same
+actor and both `route_validated` and `dispatch_prepared` audit commits to be
+confirmed before calling the existing M14 `suppress_memory()` once. These audit
+stages do not prove that suppression began or committed. M14 remains the sole
+owner of target authorization, the Memory transition, and any Task/Execution.
+The router creates no parent or duplicate Task/Execution. A verified first
+transition links its durable request/Task/Execution IDs to the separate audit;
+an authorized `already_suppressed` response has only an in-process request ID
+and no Task/Execution. The audit stores no target ID and cannot reconstruct a
+no-op target after response loss.
+
+M14's result, including `SUPPRESSION_OUTCOME_UNKNOWN`, is authoritative. A
+failed final audit update after a returned M14 result changes only
+`routing.audit_status` to `unconfirmed`; it does not fail or retry suppression.
+Reservation and pre-delegate audit uncertainty stop before M14. M5 triage
+remains `memory.save`-only. **Unknown Outcome != Failed.** No new DB state or
+automatic recovery is introduced. Deterministic automated verification, bounded
+actual-model route-selection verification, and operator manual HTTP E2E
+completed on 2026-10-06. The manual run did not inject the automated-only
+uncertainty or race conditions.
+
 ## Unknown outcome and idempotency
 
 **Unknown Outcome != Failed.** `running` means no final durable result has

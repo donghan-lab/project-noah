@@ -1,6 +1,6 @@
 # M15 — Controlled Explicit Memory Suppression Routing (pre-implementation contract)
 
-> Status: contract draft only. M15 has no implementation, migration, automated validation, or manual E2E yet. Baseline: M14 on `main` at `9566dc97e978c10cbe00e37bb96b2844256d5d20` (2026-10-06).
+> Status: contract baseline implemented and validated in the uncommitted working tree; deterministic automated verification, actual Ollama route-selection verification, and operator manual HTTP E2E completed on 2026-10-06. Results: [M15 validation](47-Fifteenth-Slice-Validation.md) and [manual HTTP E2E](48-Fifteenth-Slice-Manual-Validation.md). Final review, commit, and Push remain pending. Baseline: M14 on `main` at `9566dc97e978c10cbe00e37bb96b2844256d5d20` (2026-10-06).
 >
 > Existing boundaries: [M11 routing](34-Eleventh-Vertical-Slice.md), [M12 routing audit](37-Twelfth-Vertical-Slice.md), [M13 explicit save routing](40-Thirteenth-Vertical-Slice.md), [M14 suppression](43-Fourteenth-Vertical-Slice.md), and [Runtime state](../02-Architecture/Runtime/State.md). Their validation histories remain unchanged.
 
