@@ -1,7 +1,7 @@
 # M15 Controlled Explicit Memory Suppression Routing — automated validation
 
 > Date: 2026-10-06 (Asia/Seoul). Contract baseline: `main@ca37c7a2d9481b96c618274abfaf5bad6f6cb765`.
-> Status: implementation, deterministic automated verification, actual Ollama route-selection verification, and operator manual HTTP E2E are complete in the uncommitted working tree. Final review, commit, and Push are pending.
+> Status: implementation, deterministic automated verification, actual Ollama route-selection verification, and operator manual HTTP E2E are complete. Final implementation and validation were committed and pushed to GitHub `main` at `301ab567da29f9654799625f0de159596f0c962a`.
 
 ## Implemented boundary
 
