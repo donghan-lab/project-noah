@@ -4,6 +4,8 @@ import re
 
 import psycopg
 
+from .service import _actor_for_token
+
 
 _SAFE_CODE = re.compile(r"[A-Za-z0-9_.-]{1,80}\Z")
 
@@ -13,6 +15,15 @@ class AuditWriteError(Exception):
         self.uncertain = uncertain
         super().__init__("Routing audit outcome is unconfirmed" if uncertain
                          else "Routing audit write failed")
+
+
+class SessionReservationError(Exception):
+    """A scoped request was denied before any audit row or model call."""
+
+    def __init__(self, code, http_status, category, message):
+        self.code, self.http_status = code, http_status
+        self.category, self.message = category, message
+        super().__init__(message)
 
 
 def safe_code(value):
@@ -54,9 +65,58 @@ class RoutingAudit:
             except (psycopg.Error, OSError):
                 pass
 
-    def reserve(self, router_id, actor_user_id):
-        self._write("""INSERT INTO noah.routing_audit(router_id,actor_user_id,stage)
-            VALUES(%s,%s,'reserved')""", (router_id, actor_user_id))
+    def reserve(self, router_id, actor_user_id, *, session_id=None, token=None):
+        if session_id is None:
+            self._write("""INSERT INTO noah.routing_audit(router_id,actor_user_id,stage)
+                VALUES(%s,%s,'reserved')""", (router_id, actor_user_id))
+            return
+        # The token, Session row lock and audit insert share one transaction.
+        try:
+            db = self.connection_factory()
+        except (psycopg.Error, OSError, ValueError) as error:
+            raise AuditWriteError() from error  # No transaction was opened.
+        try:
+            if _actor_for_token(db, token) != actor_user_id:
+                raise SessionReservationError("UNAUTHENTICATED", 401,
+                                              "Permission Denied", "Authentication required")
+            row = db.execute("""SELECT closed_at FROM noah.sessions
+                WHERE id=%s AND owner_user_id=%s FOR UPDATE""",
+                (session_id, actor_user_id)).fetchone()
+            if row is None:
+                raise SessionReservationError("SESSION_NOT_FOUND", 404,
+                                              "Permission Denied", "Session not found")
+            if row["closed_at"] is not None:
+                raise SessionReservationError("SESSION_CLOSED", 409,
+                                              "Invalid Input", "Session is closed")
+            inserted = db.execute("""INSERT INTO noah.routing_audit
+                (router_id,actor_user_id,stage,session_id)
+                VALUES(%s,%s,'reserved',%s)""",
+                (router_id, actor_user_id, session_id))
+            if inserted.rowcount != 1:
+                raise AuditWriteError()
+            db.commit()
+        except (SessionReservationError, AuditWriteError):
+            if db is not None:
+                try:
+                    db.rollback()
+                except (psycopg.Error, OSError):
+                    pass
+            raise
+        except (psycopg.OperationalError, psycopg.InterfaceError, OSError) as error:
+            raise AuditWriteError(uncertain=True) from error
+        except (psycopg.Error, ValueError) as error:
+            if db is not None:
+                try:
+                    db.rollback()
+                except (psycopg.Error, OSError):
+                    pass
+            raise AuditWriteError() from error
+        finally:
+            if db is not None:
+                try:
+                    db.close()
+                except (psycopg.Error, OSError):
+                    pass
 
     def route_validated(self, router_id, route):
         self._write("""UPDATE noah.routing_audit SET stage='route_validated',

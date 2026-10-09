@@ -51,3 +51,4 @@ def initialize() -> None:
         connection.execute((ROOT / "database" / "009_memory_save_routing.sql").read_text(encoding="utf-8"))
         connection.execute((ROOT / "database" / "010_memory_suppression.sql").read_text(encoding="utf-8"))
         connection.execute((ROOT / "database" / "011_memory_suppression_routing.sql").read_text(encoding="utf-8"))
+        connection.execute((ROOT / "database" / "012_session_continuity.sql").read_text(encoding="utf-8"))

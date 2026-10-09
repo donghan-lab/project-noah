@@ -19,6 +19,7 @@ from .memory_query import query_memory
 from .memory_suppression import suppress_memory
 from .recovery import triage_memory_writes
 from .service import create_project, list_memories, read_memory, provision_user, save_memory
+from .session import close_session, create_session, inspect_session
 
 
 def _unique_json_object(pairs):
@@ -56,14 +57,23 @@ class Handler(BaseHTTPRequestHandler):
         selected_route = re.fullmatch(r"/projects/([^/]+)/documents/answer-selected", path)
         auto_route = re.fullmatch(r"/projects/([^/]+)/documents/answer-auto", path)
         suppress_route = re.fullmatch(r"/memories/([^/]+)/suppress", path)
-        if parsed.query or (path not in {"/memories", "/memories/query", "/requests/route"}
+        close_route = re.fullmatch(r"/sessions/([^/]+)/close", path)
+        session_post = path == "/sessions" or close_route is not None
+        if ((parsed.query and not session_post) or
+                (path not in {"/memories", "/memories/query", "/requests/route", "/sessions"}
                             and not project_route and not read_route
                             and not answer_route and not selected_route and not auto_route
-                            and not suppress_route):
+                            and not suppress_route and not close_route)):
             self._respond(404, {"status": "failed", "message": "Not found"})
             return
         if path == "/requests/route":
             operation = route_read_request
+        elif path == "/sessions":
+            operation = lambda payload, token, **_options: create_session(
+                payload, token, parsed.query)
+        elif close_route:
+            operation = lambda payload, token, **_options: close_session(
+                close_route.group(1), payload, token, parsed.query)
         elif suppress_route:
             operation = lambda payload, token, **_options: suppress_memory(
                 suppress_route.group(1), payload, token)
@@ -86,6 +96,8 @@ class Handler(BaseHTTPRequestHandler):
             operation = save_memory if path == "/memories" else query_memory
         options = ({"idempotency_key": self.headers.get("Idempotency-Key")}
                    if path in {"/memories", "/requests/route"} else {})
+        if path == "/requests/route":
+            options["session_headers"] = self.headers.get_all("Noah-Session-Id", []) or []
         if path in {"/memories", "/requests/route"} and len(self.headers.get_all("Idempotency-Key", [])) > 1:
             options["idempotency_key"] = ""
         try:
@@ -99,7 +111,7 @@ class Handler(BaseHTTPRequestHandler):
         try:
             raw = self.rfile.read(length)
             payload = (json.loads(raw, object_pairs_hook=_unique_json_object)
-                       if path == "/requests/route" else json.loads(raw))
+                       if path == "/requests/route" or session_post else json.loads(raw))
         except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
             payload = None
         status, body = operation(payload, self._token(), **options)
@@ -108,6 +120,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlsplit(self.path)
         path = parsed.path
+        session_route = re.fullmatch(r"/sessions/([^/]+)", path)
+        if session_route:
+            status, body = inspect_session(session_route.group(1), self._token(), parsed.query)
+            self._respond(status, body)
+            return
         if path == "/memories":
             status, body = list_memories(self._token(), parsed.query)
             self._respond(status, body)

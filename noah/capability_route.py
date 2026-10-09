@@ -21,7 +21,9 @@ from .ollama import (
 )
 from .service import (_actor_for_token, _failure, _visible_memory_context,
                       _write_fingerprint, save_memory)
-from .routing_audit import AuditWriteError, RoutingAudit, safe_code
+from .routing_audit import (AuditWriteError, RoutingAudit, SessionReservationError,
+                            safe_code)
+from .session import canonical_session_id
 
 
 MEMORY_ROUTE = "memory.query"  # M11 routing ID; M3 has no persisted capability ID.
@@ -199,6 +201,20 @@ def _audit_failure(request_id, error, reserved):
     return _with_audit(response, request_id, "unconfirmed") if reserved or error.uncertain else response
 
 
+def _reserve_audit(audit, request_id, actor, token, session_id):
+    try:
+        if session_id is None:
+            audit.reserve(request_id, actor)
+        else:
+            audit.reserve(request_id, actor, session_id=session_id, token=token)
+    except SessionReservationError as error:
+        return _failure_envelope(request_id, error.code, error.category,
+                                 error.http_status, error.message)
+    except AuditWriteError as error:
+        return _audit_failure(request_id, error, reserved=False)
+    return None
+
+
 def _uuid_or_none(value):
     try:
         return UUID(value) if isinstance(value, str) else None
@@ -322,7 +338,8 @@ def _suppress_correlation(connection_factory, actor, target, result):
 
 
 def _route_memory_save(request_id, payload, token, actor, idempotency_key,
-                       connection_factory, model, write_runner, settings_provider, audit):
+                       connection_factory, model, write_runner, settings_provider, audit,
+                       session_id=None):
     if not isinstance(payload, dict) or set(payload) != {"question", "memory_save"}:
         return _failure_envelope(request_id, "INVALID_REQUEST", "Invalid Input", 400,
                                  "Question and explicit memory save are required")
@@ -361,10 +378,9 @@ def _route_memory_save(request_id, payload, token, actor, idempotency_key,
                                  "Local configuration is unavailable")
 
     audit = audit if audit is not None else RoutingAudit(connection_factory)
-    try:
-        audit.reserve(request_id, actor)
-    except AuditWriteError as error:
-        return _audit_failure(request_id, error, reserved=False)
+    reservation_failure = _reserve_audit(audit, request_id, actor, token, session_id)
+    if reservation_failure is not None:
+        return reservation_failure
 
     model = model if model is not None else OllamaClient()
     try:
@@ -443,7 +459,7 @@ def _route_memory_save(request_id, payload, token, actor, idempotency_key,
 
 def _route_memory_suppress(request_id, payload, token, actor,
                            connection_factory, model, suppress_runner,
-                           settings_provider, audit):
+                           settings_provider, audit, session_id=None):
     if not isinstance(payload, dict) or set(payload) != {"question", "memory_suppress"}:
         return _failure_envelope(request_id, "INVALID_REQUEST", "Invalid Input", 400,
                                  "Question and explicit memory target are required")
@@ -471,10 +487,9 @@ def _route_memory_suppress(request_id, payload, token, actor,
                                  "Local configuration is unavailable")
 
     audit = audit if audit is not None else RoutingAudit(connection_factory)
-    try:
-        audit.reserve(request_id, actor)
-    except AuditWriteError as error:
-        return _audit_failure(request_id, error, reserved=False)
+    reservation_failure = _reserve_audit(audit, request_id, actor, token, session_id)
+    if reservation_failure is not None:
+        return reservation_failure
 
     model = model if model is not None else OllamaClient()
     try:
@@ -553,7 +568,8 @@ def _route_memory_suppress(request_id, payload, token, actor,
 def route_read_request(payload, token, connection_factory=connect, model=None,
                        memory_runner=None, document_runner=None,
                        settings_provider=local_settings, audit=None,
-                       idempotency_key=None, write_runner=None, suppress_runner=None):
+                       idempotency_key=None, write_runner=None, suppress_runner=None,
+                       session_headers=None):
     """Validate a model proposal, then invoke at most one existing internal function."""
     request_id = uuid4()
     if not isinstance(token, str):
@@ -569,12 +585,22 @@ def route_read_request(payload, token, connection_factory=connect, model=None,
         return _failure_envelope(request_id, "UNAUTHENTICATED", "Permission Denied", 401,
                                  "Authentication required")
 
+    session_id = None
+    if session_headers:
+        if len(session_headers) != 1:
+            return _failure_envelope(request_id, "INVALID_SESSION_ID", "Invalid Input", 400,
+                                     "One canonical Session ID is required")
+        session_id = canonical_session_id(session_headers[0])
+        if session_id is None:
+            return _failure_envelope(request_id, "INVALID_SESSION_ID", "Invalid Input", 400,
+                                     "One canonical Session ID is required")
+
     if isinstance(payload, dict) and "memory_save" in payload:
         return _route_memory_save(request_id, payload, token, actor, idempotency_key,
-            connection_factory, model, write_runner, settings_provider, audit)
+            connection_factory, model, write_runner, settings_provider, audit, session_id)
     if isinstance(payload, dict) and "memory_suppress" in payload:
         return _route_memory_suppress(request_id, payload, token, actor,
-            connection_factory, model, suppress_runner, settings_provider, audit)
+            connection_factory, model, suppress_runner, settings_provider, audit, session_id)
 
     if (not isinstance(payload, dict) or set(payload) not in
             ({"question"}, {"question", "project_id"})):
@@ -614,10 +640,9 @@ def route_read_request(payload, token, connection_factory=connect, model=None,
                                  "Local configuration is unavailable")
 
     audit = audit if audit is not None else RoutingAudit(connection_factory)
-    try:
-        audit.reserve(request_id, actor)
-    except AuditWriteError as error:
-        return _audit_failure(request_id, error, reserved=False)
+    reservation_failure = _reserve_audit(audit, request_id, actor, token, session_id)
+    if reservation_failure is not None:
+        return reservation_failure
 
     model = model if model is not None else OllamaClient()
     try:
