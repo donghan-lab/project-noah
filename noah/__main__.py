@@ -9,6 +9,8 @@ from urllib.parse import urlsplit
 import psycopg
 
 from .db import initialize
+from .document_task import (register_document_task, list_document_tasks,
+                            inspect_document_task, run_document_task)
 from .capability_route import route_read_request
 from .document_query import query_project_documents
 from .document_answer_query import answer_project_document
@@ -48,9 +50,37 @@ class Handler(BaseHTTPRequestHandler):
         value = self.headers.get("Authorization", "")
         return value[7:] if value.startswith("Bearer ") else ""
 
+    def _task_headers(self):
+        """M18-only strict headers; preserve every existing endpoint's parser."""
+        values = self.headers.get_all("Authorization", []) or []
+        forbidden = (len(values) > 1 or bool(self.headers.get_all("Noah-Session-Id"))
+                     or bool(self.headers.get_all("Idempotency-Key")))
+        return (self._token() if len(values) <= 1 else ""), forbidden
+
+    def _task_post(self, parsed, run_match):
+        token, forbidden = self._task_headers()
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 <= length <= 4096:
+                raise ValueError("Invalid length")
+            raw = self.rfile.read(length)
+            payload = json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+        except (ValueError, UnicodeError):
+            payload = None
+        options = {"query": parsed.query, "forbidden_headers": forbidden}
+        if run_match:
+            status, body = run_document_task(run_match.group(1), payload, token, **options)
+        else:
+            status, body = register_document_task(payload, token, **options)
+        self._respond(status, body)
+
     def do_POST(self):
         parsed = urlsplit(self.path)
         path = parsed.path
+        task_run = re.fullmatch(r"/tasks/([^/]+)/run", path)
+        if path == "/tasks/document-questions" or task_run:
+            self._task_post(parsed, task_run)
+            return
         project_route = re.fullmatch(r"/projects/([^/]+)/documents/query", path)
         read_route = re.fullmatch(r"/projects/([^/]+)/documents/read", path)
         answer_route = re.fullmatch(r"/projects/([^/]+)/documents/answer", path)
@@ -120,6 +150,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlsplit(self.path)
         path = parsed.path
+        task_route = re.fullmatch(r"/tasks/([^/]+)", path)
+        if path == "/tasks" or task_route:
+            token, forbidden = self._task_headers()
+            if task_route:
+                status, body = inspect_document_task(task_route.group(1), token,
+                    parsed.query, forbidden_headers=forbidden)
+            else:
+                status, body = list_document_tasks(token, parsed.query, forbidden_headers=forbidden)
+            self._respond(status, body)
+            return
         session_route = re.fullmatch(r"/sessions/([^/]+)", path)
         if session_route:
             status, body = inspect_session(session_route.group(1), self._token(), parsed.query)
